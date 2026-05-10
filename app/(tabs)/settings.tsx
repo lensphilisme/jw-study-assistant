@@ -33,6 +33,7 @@ import {
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppStore } from '@/store/appStore';
+import { useTheme as useCodexTheme } from '@/constants/theme';
 import { clearAllData } from '@/services/storageService';
 import { getLanguages } from '@/services/languageService';
 import type { Language } from '@/types';
@@ -333,6 +334,7 @@ export default function SettingsScreen() {
   const language = useAppStore((s) => s.language);
   const setLanguage = useAppStore((s) => s.setLanguage);
   const userProfile = useAppStore((s) => s.userProfile);
+  const codexTheme = useCodexTheme();
 
   const [notifications, setNotifications] = useState<NotificationsConfig>(DEFAULT_NOTIFICATIONS);
   const [theme, setTheme] = useState<'dark' | 'light' | 'system'>('dark');
@@ -372,6 +374,7 @@ export default function SettingsScreen() {
   const handleTheme = async (t: 'dark' | 'light' | 'system') => {
     setTheme(t);
     await AsyncStorage.setItem(STORAGE_KEYS.THEME, t);
+    if (t === 'light' || t === 'dark') codexTheme.setMode(t);
     toast('Theme updated', { variant: 'success' });
   };
 
@@ -401,7 +404,7 @@ export default function SettingsScreen() {
   const themeLabel = { dark: 'Dark', light: 'Light', system: 'System' };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#1C1C1E' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: codexTheme.t.bg }} testID="settings-screen">
       <ScrollView flex={1} showsVerticalScrollIndicator={false}>
         <YStack padding="$5" gap="$5" paddingBottom="$10">
           {/* Header */}

@@ -20,6 +20,7 @@ import {
 } from '@blinkdotnew/mobile-ui';
 import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '@/constants/theme';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -312,6 +313,7 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
 
 export default function MinistryScreen() {
   const router = useRouter();
+  const { t: th } = useTheme();
   const [contacts, setContacts] = useState<MinistryContact[]>([]);
   const [filter, setFilter] = useState<FilterType>('all');
   const [loading, setLoading] = useState(true);
@@ -337,7 +339,7 @@ export default function MinistryScreen() {
     : contacts.filter(c => c.status === filter);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#1C1C1E' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: th.bg }} testID="ministry-screen">
       {/* Header */}
       <XStack
         paddingHorizontal="$5"
@@ -346,8 +348,8 @@ export default function MinistryScreen() {
         justifyContent="space-between"
         alignItems="center"
       >
-        <H2 color="#F2F2F7" fontWeight="800" style={{ fontSize: 28 }}>
-          Ministry
+        <H2 color={th.ink} fontWeight="800" style={{ fontSize: 32, fontFamily: 'Georgia, serif', letterSpacing: -0.8 }}>
+          Field Ministry
         </H2>
         <TouchableOpacity
           activeOpacity={0.8}
@@ -356,12 +358,12 @@ export default function MinistryScreen() {
             width: 44,
             height: 44,
             borderRadius: 22,
-            backgroundColor: '#5B7E6B',
+            backgroundColor: th.copper,
             justifyContent: 'center',
             alignItems: 'center',
           }}
         >
-          <Plus size={22} color="#FFFFFF" />
+          <Plus size={22} color={th.inkInverse} />
         </TouchableOpacity>
       </XStack>
 

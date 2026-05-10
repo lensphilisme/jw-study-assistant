@@ -29,6 +29,7 @@ import {
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, AsyncStorageAdapter } from '@blinkdotnew/sdk';
+import { useTheme } from '@/constants/theme';
 
 // ─── Blink client ────────────────────────────────────────────────────────────
 const blink = createClient({
@@ -256,6 +257,7 @@ function ResultCard({
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 export default function SearchScreen() {
   const router = useRouter();
+  const { t: th } = useTheme();
   const [query, setQuery] = useState('');
   const [searchType, setSearchType] = useState('jw');
   const [activeFilters, setActiveFilters] = useState<string[]>(['all']);
@@ -447,7 +449,7 @@ export default function SearchScreen() {
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#1C1C1E' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: th.bg }} testID="search-screen">
       <YStack flex={1}>
         {/* ── Header ── */}
         <XStack
@@ -458,9 +460,9 @@ export default function SearchScreen() {
           justifyContent="space-between"
         >
           <XStack alignItems="center" gap="$2">
-            <Globe size={22} color="#5B7E6B" />
-            <H2 color="#F2F2F7" fontWeight="800" fontSize={24}>
-              Search JW Sources
+            <Globe size={22} color={th.copper} />
+            <H2 color={th.ink} fontWeight="800" fontSize={28} style={{ fontFamily: 'Georgia, serif', letterSpacing: -0.8 }}>
+              Find Sources
             </H2>
           </XStack>
           <Button

@@ -8,78 +8,48 @@ import {
   Settings,
   BookMarked,
 } from '@blinkdotnew/mobile-ui';
+import { Platform } from 'react-native';
+import { useTheme, fonts } from '@/constants/theme';
 
 export default function TabLayout() {
+  const { t, mode } = useTheme();
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#5B7E6B',
-        tabBarInactiveTintColor: '#9CA3AF',
+        tabBarActiveTintColor: t.copper,
+        tabBarInactiveTintColor: t.inkSubtle,
         tabBarStyle: {
-          backgroundColor: '#1C1C1E',
-          borderTopColor: '#2C2C2E',
+          backgroundColor: t.surface,
+          borderTopColor: t.border,
           borderTopWidth: 1,
-          height: 60,
+          height: Platform.OS === 'web' ? 64 : 60,
           paddingBottom: 8,
-          paddingTop: 4,
+          paddingTop: 6,
+          // subtle top shadow
+          shadowColor: t.shadow,
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 1,
+          shadowRadius: 12,
+          elevation: 8,
         },
         tabBarLabelStyle: {
           fontSize: 10,
           marginTop: -2,
-          fontWeight: '500',
+          fontWeight: '600',
+          fontFamily: fonts.mono,
+          letterSpacing: 0.8,
+          textTransform: 'uppercase' as const,
         },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="search"
-        options={{
-          title: 'Search',
-          tabBarIcon: ({ color, size }) => <Search size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="meetings"
-        options={{
-          title: 'Meetings',
-          tabBarIcon: ({ color, size }) => <BookOpen size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="ministry"
-        options={{
-          title: 'Ministry',
-          tabBarIcon: ({ color, size }) => <Users size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="study"
-        options={{
-          title: 'Study',
-          tabBarIcon: ({ color, size }) => <BookMarked size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="saved"
-        options={{
-          title: 'Saved',
-          tabBarIcon: ({ color, size }) => <Bookmark size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Settings',
-          tabBarIcon: ({ color, size }) => <Settings size={size} color={color} />,
-        }}
-      />
+      <Tabs.Screen name="index"    options={{ title: 'Today',    tabBarIcon: ({ color, size }) => <Home size={size - 2} color={color} /> }} />
+      <Tabs.Screen name="search"   options={{ title: 'Find',     tabBarIcon: ({ color, size }) => <Search size={size - 2} color={color} /> }} />
+      <Tabs.Screen name="meetings" options={{ title: 'Meetings', tabBarIcon: ({ color, size }) => <BookOpen size={size - 2} color={color} /> }} />
+      <Tabs.Screen name="ministry" options={{ title: 'Field',    tabBarIcon: ({ color, size }) => <Users size={size - 2} color={color} /> }} />
+      <Tabs.Screen name="study"    options={{ title: 'Study',    tabBarIcon: ({ color, size }) => <BookMarked size={size - 2} color={color} /> }} />
+      <Tabs.Screen name="saved"    options={{ title: 'Library',  tabBarIcon: ({ color, size }) => <Bookmark size={size - 2} color={color} /> }} />
+      <Tabs.Screen name="settings" options={{ title: 'Settings', tabBarIcon: ({ color, size }) => <Settings size={size - 2} color={color} /> }} />
     </Tabs>
   );
 }

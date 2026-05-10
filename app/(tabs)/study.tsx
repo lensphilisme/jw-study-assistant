@@ -25,6 +25,7 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@blinkdotnew/sdk';
+import { useTheme } from '@/constants/theme';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -471,6 +472,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
 
 export default function StudyScreen() {
   const router = useRouter();
+  const { t: th } = useTheme();
   const [plans, setPlans] = useState<StudyPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -491,7 +493,7 @@ export default function StudyScreen() {
   }, [loadPlans]));
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#1C1C1E' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: th.bg }} testID="study-screen">
       {/* Header */}
       <XStack
         paddingHorizontal="$5"
@@ -500,8 +502,8 @@ export default function StudyScreen() {
         justifyContent="space-between"
         alignItems="center"
       >
-        <H2 color="#F2F2F7" fontWeight="800" style={{ fontSize: 28 }}>
-          Study Plan
+        <H2 color={th.ink} fontWeight="800" style={{ fontSize: 32, fontFamily: 'Georgia, serif', letterSpacing: -0.8 }}>
+          Study Plans
         </H2>
         <Button
           size="$3"

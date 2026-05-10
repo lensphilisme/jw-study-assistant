@@ -32,6 +32,7 @@ import {
 } from '@blinkdotnew/mobile-ui';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '@/constants/theme';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface MeetingPart {
@@ -307,6 +308,7 @@ function PartCard({ part, onPress }: { part: MeetingPart; onPress: () => void })
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function MeetingsScreen() {
   const router = useRouter();
+  const { t: th } = useTheme();
 
   const today = new Date();
   const current = getISOWeek(today);
@@ -471,7 +473,7 @@ export default function MeetingsScreen() {
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#1C1C1E' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: th.bg }} testID="meetings-screen">
       <YStack flex={1}>
         {/* ── Header ── */}
         <XStack
@@ -482,7 +484,7 @@ export default function MeetingsScreen() {
           gap="$2"
         >
           <BookOpen size={22} color="#5B7E6B" />
-          <H2 color="#F2F2F7" fontWeight="800" fontSize={24}>
+          <H2 color={th.ink} fontWeight="800" fontSize={26} style={{ fontFamily: 'Georgia, serif', letterSpacing: -0.6 }}>
             Meeting Preparation
           </H2>
         </XStack>

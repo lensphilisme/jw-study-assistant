@@ -32,6 +32,7 @@ import {
 import { useAppStore } from '@/store/appStore';
 import { loadSavedSources, deleteSource } from '@/services/storageService';
 import type { SavedSource, SavedSourceType, SyncStatus } from '@/types';
+import { useTheme } from '@/constants/theme';
 
 // ── Filter configuration ─────────────────────────────────────
 const FILTER_TYPES: { key: 'all' | SavedSourceType; label: string }[] = [
@@ -244,6 +245,7 @@ function EmptyState() {
 
 // ── Main Screen ───────────────────────────────────────────────
 export default function SavedScreen() {
+  const { t: th } = useTheme();
   const storeItems = useAppStore((s) => s.savedSources);
   const removeSavedSource = useAppStore((s) => s.removeSavedSource);
 
@@ -309,7 +311,7 @@ export default function SavedScreen() {
   });
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#1C1C1E' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: th.bg }} testID="saved-screen">
       <YStack flex={1}>
         {/* ── Header ── */}
         <XStack
@@ -319,8 +321,8 @@ export default function SavedScreen() {
           justifyContent="space-between"
           alignItems="center"
         >
-          <SizableText size="$8" color="#F2F2F7" fontWeight="800">
-            Saved Library
+          <SizableText size="$8" color={th.ink} fontWeight="800" style={{ fontFamily: 'Georgia, serif', letterSpacing: -0.8, fontSize: 32 }}>
+            Library
           </SizableText>
           <XStack gap="$2">
             <Button
