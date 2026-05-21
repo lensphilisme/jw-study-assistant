@@ -48,6 +48,7 @@ import {
 } from '@/services/wolReferenceService';
 import { gatewayResolveReference } from '@/services/sourceGatewayService';
 import type { GeneratedAnswer } from '@/types';
+import { premium } from '@/constants/premiumTheme';
 
 // ── Types ─────────────────────────────────────────────────────
 type AnswerLength = 'short' | 'medium' | 'long';
@@ -64,6 +65,14 @@ interface MeetingPartData {
   workbookUrl?: string;
   video?: { title: string; pub: string; issue: string; track: string; langwritten: string };
   images?: Array<{ url: string; alt?: string }>;
+}
+
+interface ResolvedVideoSource {
+  url: string;
+  title?: string;
+  poster?: string;
+  subtitles?: string;
+  label?: string;
 }
 
 const LENGTH_OPTIONS = [
@@ -124,10 +133,12 @@ function InlineTokens({
   tokens,
   onReference,
   videoUrl,
+  videoSource,
 }: {
   tokens: WolReferenceToken[];
   onReference: (ref: WolReference) => void;
   videoUrl?: string | null;
+  videoSource?: ResolvedVideoSource | null;
 }) {
   return (
     <XStack flexWrap="wrap" gap="$1" alignItems="baseline">
@@ -151,13 +162,22 @@ function InlineTokens({
           if (videoUrl) {
             return (
               <YStack key={index} width="100%" gap="$2" paddingVertical="$2">
-                <SizableText size="$3" color="#78B58A" fontWeight="700">{token.text}</SizableText>
+                <SizableText size="$3" color="#78B58A" fontWeight="700">{videoSource?.title || token.text}</SizableText>
                 {React.createElement('video', {
                   src: videoUrl,
                   controls: true,
+                  poster: videoSource?.poster,
                   style: { width: '100%', borderRadius: 10, backgroundColor: '#111' },
                   playsInline: true,
-                })}
+                }, videoSource?.subtitles
+                  ? React.createElement('track', {
+                      kind: 'subtitles',
+                      src: videoSource.subtitles,
+                      srcLang: 'en',
+                      label: 'Captions',
+                      default: true,
+                    })
+                  : null)}
               </YStack>
             );
           }
@@ -234,30 +254,30 @@ function ReferenceSheet({
 
   return (
     <Sheet open={open} onOpenChange={(v: boolean) => { if (!v) onClose(); }} snapPoints={[75]} modal={false} dismissOnSnapToBottom>
-      <Sheet.Frame backgroundColor="#1C1C1E" borderTopLeftRadius="$6" borderTopRightRadius="$6">
-        <Sheet.Handle backgroundColor="#3A3A3C" />
+      <Sheet.Frame backgroundColor={premium.bg} borderTopLeftRadius="$6" borderTopRightRadius="$6">
+        <Sheet.Handle backgroundColor={premium.borderStrong} />
         <ScrollView flex={1}>
           <YStack padding="$5" gap="$4">
-            <SizableText size="$2" color="#5B7E6B" fontWeight="800">
+            <SizableText size="$2" color={premium.primary} fontWeight="900" letterSpacing={1}>
               {reference?.kind === 'bible' ? 'BIBLE VERSE' : 'PUBLICATION'}
             </SizableText>
-            <SizableText size="$5" color="#F2F2F7" fontWeight="800">{reference?.text}</SizableText>
+            <SizableText size="$5" color={premium.text} fontWeight="900" letterSpacing={-0.3}>{reference?.text}</SizableText>
             {loading ? (
               <XStack gap="$2" alignItems="center">
-                <Spinner size="small" color="#5B7E6B" />
-                <SizableText color="#9CA3AF">Loading reference...</SizableText>
+                <Spinner size="small" color={premium.primary} />
+                <SizableText color={premium.textMuted}>Loading reference...</SizableText>
               </XStack>
             ) : error ? (
               <SizableText color="#EF8080">{error}</SizableText>
             ) : preview ? (
               <YStack gap="$3">
                 {preview.title && preview.title !== reference?.text ? (
-                  <SizableText size="$4" color="#D1D5DB" fontWeight="700">{preview.title}</SizableText>
+                  <SizableText size="$4" color={premium.textSoft} fontWeight="800">{preview.title}</SizableText>
                 ) : null}
                 {preview.tokens?.length ? (
                   <InlineTokens tokens={preview.tokens} onReference={onReference} />
                 ) : (
-                  <SizableText size="$4" color="#F2F2F7" lineHeight={26}>{preview.content}</SizableText>
+                  <SizableText size="$4" color={premium.text} lineHeight={26}>{preview.content}</SizableText>
                 )}
               </YStack>
             ) : null}
@@ -421,6 +441,7 @@ export default function MeetingPrepScreen() {
   const [answerSaved, setAnswerSaved] = useState(false);
   const [activeReference, setActiveReference] = useState<WolReference | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoSource, setVideoSource] = useState<ResolvedVideoSource | null>(null);
   const detailTokens = partData.tokens?.length
     ? partData.tokens
     : partData.detailHtml
@@ -432,14 +453,32 @@ export default function MeetingPrepScreen() {
     if (!video) return;
     // Always use contentLanguage for video fetching
     const lang = contentLanguage?.code || video.langwritten;
-    getVideoSource(video.pub, Number(video.track), lang)
+    setVideoUrl(null);
+    setVideoSource(null);
+    getVideoSource(video.pub, Number(video.track), lang, video.issue)
       .then((raw: any) => {
         const files = raw?.files?.[lang]?.MP4 ?? raw?.files?.[lang]?.M4V ?? [];
-        const url = files?.[0]?.file?.url;
+        const best = pickBestVideoFile(files);
+        const url = best?.file?.url;
+        const subtitles = best?.subtitles?.url;
         setVideoUrl(proxiedMediaUrl(url));
+        setVideoSource(url ? {
+          url: proxiedMediaUrl(url) ?? url,
+          title: best?.title || video.title,
+          poster: proxiedMediaUrl(best?.trackImage?.url) ?? best?.trackImage?.url,
+          subtitles: proxiedMediaUrl(subtitles) ?? subtitles,
+          label: best?.label,
+        } : null);
       })
       .catch(() => {});
   }, [partData.video?.pub, partData.video?.issue, partData.video?.track, contentLanguage]);
+
+  function pickBestVideoFile(files: any[] = []) {
+    if (!Array.isArray(files) || !files.length) return null;
+    return files.find((file) => /480p/i.test(file?.label ?? ''))
+      ?? files.find((file) => /360p/i.test(file?.label ?? ''))
+      ?? files[0];
+  }
 
   const generateAnswer = useCallback(async (
     length: AnswerLength,
@@ -557,7 +596,7 @@ export default function MeetingPrepScreen() {
                 </SizableText>
               </XStack>
               <Card backgroundColor="#202124" borderRadius="$4" padding="$4" borderWidth={1} borderColor="#34383E" gap="$3">
-                <InlineTokens tokens={detailTokens} onReference={setActiveReference} videoUrl={videoUrl} />
+                <InlineTokens tokens={detailTokens} onReference={setActiveReference} videoUrl={videoUrl} videoSource={videoSource} />
               </Card>
             </YStack>
           )}

@@ -140,16 +140,25 @@ export async function gatewayGetVideoSource(
   pub: string,
   track: number,
   language: Language,
+  issue?: string,
 ): Promise<SourceGatewayResult<string | null>> {
   const lang = normalizeAppLanguage(language);
-  const raw: any = await getVideoSource(pub, track, lang.code);
+  const raw: any = await getVideoSource(pub, track, lang.code, issue);
   const files = raw?.files?.[lang.code]?.MP4 ?? raw?.files?.[lang.code]?.M4V ?? [];
-  const url = files?.[0]?.file?.url ?? null;
+  const best = pickBestVideoFile(files);
+  const url = best?.file?.url ?? null;
   return {
     provider: 'jw-mcp-compatible',
     data: proxiedMediaUrl(url),
     sourceUrl: url ?? undefined,
   };
+}
+
+function pickBestVideoFile(files: any[] = []) {
+  if (!Array.isArray(files) || !files.length) return null;
+  return files.find((file) => /480p/i.test(file?.label ?? ''))
+    ?? files.find((file) => /360p/i.test(file?.label ?? ''))
+    ?? files[0];
 }
 
 export async function gatewaySearchSuggestions(query: string, language: Language) {

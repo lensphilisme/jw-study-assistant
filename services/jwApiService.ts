@@ -368,11 +368,12 @@ export async function getBibleBooks(langSymbol: string): Promise<BibleBook[]> {
 export async function getVideoSource(
   pubCode: string,
   track: number,
-  langCode: string
+  langCode: string,
+  issue?: string
 ): Promise<unknown> {
   const url = (
     `${BASE_CDN}/pub-media/GETPUBMEDIALINKS` +
-    `?pub=${pubCode}&track=${track}&langwritten=${langCode}&fileformat=MP4,M4V&output=json`
+    `?pub=${pubCode}${issue ? `&issue=${issue}` : ''}&track=${track}&langwritten=${langCode}&fileformat=MP4,M4V&output=json`
   );
   return jwFetch(url);
 }
