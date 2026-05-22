@@ -20,7 +20,7 @@ import {
 } from '@blinkdotnew/mobile-ui';
 import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useTheme } from '@/constants/theme';
+import { usePremiumTheme } from '@/hooks/usePremiumTheme';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -313,7 +313,13 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
 
 export default function MinistryScreen() {
   const router = useRouter();
-  const { t: th } = useTheme();
+  const colors = usePremiumTheme();
+  const th = {
+    bg: colors.bg,
+    ink: colors.text,
+    inkInverse: '#FFFFFF',
+    copper: colors.primaryDeep,
+  };
   const [contacts, setContacts] = useState<MinistryContact[]>([]);
   const [filter, setFilter] = useState<FilterType>('all');
   const [loading, setLoading] = useState(true);

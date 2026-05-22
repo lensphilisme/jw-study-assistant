@@ -13,7 +13,6 @@ import {
   Button,
   ScrollView,
   BlinkToggleGroup,
-  Sheet,
   Spinner,
   Separator,
   toast,
@@ -37,7 +36,6 @@ import { useAppStore } from '@/store/appStore';
 import { generateMeetingAnswer } from '@/services/aiRetrievalService';
 import { saveSource } from '@/services/storageService';
 import { safeBack } from '@/services/navigationService';
-import { getVideoSource, proxiedMediaUrl } from '@/services/jwApiService';
 import {
   absoluteWolUrl,
   stripHtml,
@@ -46,9 +44,14 @@ import {
   type WolReferenceToken,
   type WolPreview,
 } from '@/services/wolReferenceService';
-import { gatewayResolveReference } from '@/services/sourceGatewayService';
+import {
+  gatewayResolveMeetingVideo,
+  gatewayResolveReference,
+  type ResolvedMeetingVideo,
+} from '@/services/sourceGatewayService';
 import type { GeneratedAnswer } from '@/types';
-import { premium } from '@/constants/premiumTheme';
+import { usePremiumTheme } from '@/hooks/usePremiumTheme';
+import { PreviewModal } from '@/components/premium';
 
 // ── Types ─────────────────────────────────────────────────────
 type AnswerLength = 'short' | 'medium' | 'long';
@@ -73,6 +76,8 @@ interface ResolvedVideoSource {
   poster?: string;
   subtitles?: string;
   label?: string;
+  captionsText?: string;
+  sourceUrl?: string;
 }
 
 const LENGTH_OPTIONS = [
@@ -237,6 +242,7 @@ function ReferenceSheet({
   reference: WolReference | null;
   onReference: (ref: WolReference) => void;
 }) {
+  const colors = usePremiumTheme();
   const [preview, setPreview] = useState<WolPreview | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -253,38 +259,27 @@ function ReferenceSheet({
   }, [open, reference]);
 
   return (
-    <Sheet open={open} onOpenChange={(v: boolean) => { if (!v) onClose(); }} snapPoints={[75]} modal={false} dismissOnSnapToBottom>
-      <Sheet.Frame backgroundColor={premium.bg} borderTopLeftRadius="$6" borderTopRightRadius="$6">
-        <Sheet.Handle backgroundColor={premium.borderStrong} />
-        <ScrollView flex={1}>
-          <YStack padding="$5" gap="$4">
-            <SizableText size="$2" color={premium.primary} fontWeight="900" letterSpacing={1}>
-              {reference?.kind === 'bible' ? 'BIBLE VERSE' : 'PUBLICATION'}
-            </SizableText>
-            <SizableText size="$5" color={premium.text} fontWeight="900" letterSpacing={-0.3}>{reference?.text}</SizableText>
+    <PreviewModal open={open} onClose={onClose} label={reference?.kind === 'bible' ? 'Bible verse' : 'Publication'} title={reference?.text} loading={loading}>
             {loading ? (
               <XStack gap="$2" alignItems="center">
-                <Spinner size="small" color={premium.primary} />
-                <SizableText color={premium.textMuted}>Loading reference...</SizableText>
+                <Spinner size="small" color={colors.primary} />
+                <SizableText color={colors.textMuted}>Loading reference...</SizableText>
               </XStack>
             ) : error ? (
-              <SizableText color="#EF8080">{error}</SizableText>
+              <SizableText color={colors.danger}>{error}</SizableText>
             ) : preview ? (
               <YStack gap="$3">
                 {preview.title && preview.title !== reference?.text ? (
-                  <SizableText size="$4" color={premium.textSoft} fontWeight="800">{preview.title}</SizableText>
+                  <SizableText size="$4" color={colors.textSoft} fontWeight="800">{preview.title}</SizableText>
                 ) : null}
                 {preview.tokens?.length ? (
                   <InlineTokens tokens={preview.tokens} onReference={onReference} />
                 ) : (
-                  <SizableText size="$4" color={premium.text} lineHeight={26}>{preview.content}</SizableText>
+                  <SizableText size="$4" color={colors.text} lineHeight={26}>{preview.content}</SizableText>
                 )}
               </YStack>
             ) : null}
-          </YStack>
-        </ScrollView>
-      </Sheet.Frame>
-    </Sheet>
+    </PreviewModal>
   );
 }
 
@@ -390,6 +385,7 @@ function AnswerCard({
 // ── Main Screen ───────────────────────────────────────────────
 export default function MeetingPrepScreen() {
   const router = useRouter();
+  const colors = usePremiumTheme();
   const params = useLocalSearchParams<{
     partData?: string;
     partKey?: string;
@@ -442,6 +438,7 @@ export default function MeetingPrepScreen() {
   const [activeReference, setActiveReference] = useState<WolReference | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoSource, setVideoSource] = useState<ResolvedVideoSource | null>(null);
+  const [videoCaptions, setVideoCaptions] = useState('');
   const detailTokens = partData.tokens?.length
     ? partData.tokens
     : partData.detailHtml
@@ -451,34 +448,25 @@ export default function MeetingPrepScreen() {
   useEffect(() => {
     const video = partData.video;
     if (!video) return;
-    // Always use contentLanguage for video fetching
-    const lang = contentLanguage?.code || video.langwritten;
     setVideoUrl(null);
     setVideoSource(null);
-    getVideoSource(video.pub, Number(video.track), lang, video.issue)
-      .then((raw: any) => {
-        const files = raw?.files?.[lang]?.MP4 ?? raw?.files?.[lang]?.M4V ?? [];
-        const best = pickBestVideoFile(files);
-        const url = best?.file?.url;
-        const subtitles = best?.subtitles?.url;
-        setVideoUrl(proxiedMediaUrl(url));
-        setVideoSource(url ? {
-          url: proxiedMediaUrl(url) ?? url,
-          title: best?.title || video.title,
-          poster: proxiedMediaUrl(best?.trackImage?.url) ?? best?.trackImage?.url,
-          subtitles: proxiedMediaUrl(subtitles) ?? subtitles,
-          label: best?.label,
+    setVideoCaptions('');
+    gatewayResolveMeetingVideo(video, contentLanguage)
+      .then(({ data }: { data: ResolvedMeetingVideo }) => {
+        setVideoUrl(data.url);
+        setVideoCaptions(data.captionsText || '');
+        setVideoSource(data.url ? {
+          url: data.url,
+          title: data.title,
+          poster: data.poster ?? undefined,
+          subtitles: data.subtitlesUrl ?? undefined,
+          label: data.label,
+          captionsText: data.captionsText,
+          sourceUrl: data.sourceUrl,
         } : null);
       })
       .catch(() => {});
   }, [partData.video?.pub, partData.video?.issue, partData.video?.track, contentLanguage]);
-
-  function pickBestVideoFile(files: any[] = []) {
-    if (!Array.isArray(files) || !files.length) return null;
-    return files.find((file) => /480p/i.test(file?.label ?? ''))
-      ?? files.find((file) => /360p/i.test(file?.label ?? ''))
-      ?? files[0];
-  }
 
   const generateAnswer = useCallback(async (
     length: AnswerLength,
@@ -489,6 +477,7 @@ export default function MeetingPrepScreen() {
     try {
       const retrievedContent = [
         partData.detailHtml ? stripHtml(partData.detailHtml) : '',
+        videoCaptions ? `Video captions for ${videoSource?.title || partTitle}:\n${videoCaptions}` : '',
         ...references.map((ref) => `${ref.text}: ${ref.href}`),
       ].filter(Boolean).join('\n\n');
       const answer = await generateMeetingAnswer(
@@ -496,7 +485,10 @@ export default function MeetingPrepScreen() {
         questions,
         references.map((ref) => ref.text),
         retrievedContent,
-        references.map((ref) => ({ title: ref.text, url: ref.href })),
+        [
+          ...references.map((ref) => ({ title: ref.text, url: ref.href })),
+          ...(videoSource ? [{ title: videoSource.title || 'Meeting video captions', url: videoSource.sourceUrl || videoSource.url }] : []),
+        ],
         length,
         t,
       );
@@ -509,7 +501,7 @@ export default function MeetingPrepScreen() {
     } finally {
       setIsGenerating(false);
     }
-  }, [partData.detailHtml, partTitle, questions, references]);
+  }, [partData.detailHtml, partTitle, questions, references, videoCaptions, videoSource]);
 
   const handleRefine = async (overrideLength?: AnswerLength, overrideTone?: AnswerTone) => {
     const l = overrideLength ?? answerLength;
@@ -554,33 +546,33 @@ export default function MeetingPrepScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#1C1C1E' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
       {/* ── Header ── */}
       <XStack paddingHorizontal="$4" paddingTop="$2" paddingBottom="$3" alignItems="center" gap="$2">
         <Button
           chromeless
           size="$3"
           onPress={() => safeBack(router, '/(tabs)/meetings')}
-          icon={<ChevronLeft size={22} color="#9CA3AF" />}
+          icon={<ChevronLeft size={22} color={colors.textMuted} />}
         />
         <YStack flex={1} gap="$1">
-          <SizableText size="$5" color="#F2F2F7" fontWeight="700" numberOfLines={2}>
+          <SizableText size="$5" color={colors.text} fontWeight="900" numberOfLines={2}>
             {partTitle}
           </SizableText>
         </YStack>
         {/* Time badge */}
         <XStack
-          backgroundColor="rgba(91,126,107,0.15)"
+          backgroundColor={colors.glow}
           borderRadius="$10"
           paddingHorizontal="$3"
           paddingVertical="$1"
           borderWidth={1}
-          borderColor="rgba(91,126,107,0.3)"
+          borderColor={colors.borderStrong}
           gap="$1"
           alignItems="center"
         >
-          <Clock size={12} color="#5B7E6B" />
-          <SizableText size="$2" color="#5B7E6B" fontWeight="600">{timeMinutes} min</SizableText>
+          <Clock size={12} color={colors.primary} />
+          <SizableText size="$2" color={colors.primary} fontWeight="700">{timeMinutes} min</SizableText>
         </XStack>
       </XStack>
 
@@ -590,12 +582,12 @@ export default function MeetingPrepScreen() {
           {detailTokens.length > 0 && (
             <YStack gap="$3">
               <XStack gap="$2" alignItems="center">
-                <FileText size={16} color="#5B7E6B" />
-                <SizableText size="$3" color="#9CA3AF" fontWeight="700" letterSpacing={0.5}>
+                <FileText size={16} color={colors.primary} />
+                <SizableText size="$3" color={colors.textMuted} fontWeight="800" letterSpacing={0.5}>
                   SECTION CONTENT
                 </SizableText>
               </XStack>
-              <Card backgroundColor="#202124" borderRadius="$4" padding="$4" borderWidth={1} borderColor="#34383E" gap="$3">
+              <Card backgroundColor={colors.surface} borderRadius="$7" padding="$4" borderWidth={1} borderColor={colors.border} gap="$3">
                 <InlineTokens tokens={detailTokens} onReference={setActiveReference} videoUrl={videoUrl} videoSource={videoSource} />
               </Card>
             </YStack>
@@ -605,8 +597,8 @@ export default function MeetingPrepScreen() {
           {references.length > 0 && (
             <YStack gap="$3">
               <XStack gap="$2" alignItems="center">
-                <BookOpen size={16} color="#5B7E6B" />
-                <SizableText size="$3" color="#9CA3AF" fontWeight="700" letterSpacing={0.5}>
+                <BookOpen size={16} color={colors.primary} />
+                <SizableText size="$3" color={colors.textMuted} fontWeight="800" letterSpacing={0.5}>
                   REFERENCES
                 </SizableText>
               </XStack>
@@ -629,8 +621,8 @@ export default function MeetingPrepScreen() {
           {questions.length > 0 && (
             <YStack gap="$3">
               <XStack gap="$2" alignItems="center">
-                <AlignLeft size={16} color="#7B6B9E" />
-                <SizableText size="$3" color="#9CA3AF" fontWeight="700" letterSpacing={0.5}>
+                <AlignLeft size={16} color={colors.accent} />
+                <SizableText size="$3" color={colors.textMuted} fontWeight="800" letterSpacing={0.5}>
                   QUESTIONS
                 </SizableText>
               </XStack>
@@ -640,25 +632,25 @@ export default function MeetingPrepScreen() {
                     key={`q-${i}`}
                     gap="$3"
                     alignItems="flex-start"
-                    backgroundColor="#2C2C2E"
-                    borderRadius="$3"
+                    backgroundColor={colors.surface}
+                    borderRadius="$6"
                     padding="$3"
                     borderWidth={1}
-                    borderColor="#3A3A3C"
+                    borderColor={colors.border}
                   >
                     <YStack
                       width={24}
                       height={24}
                       borderRadius={12}
-                      backgroundColor="rgba(123,107,158,0.2)"
+                      backgroundColor={colors.glowBlue}
                       justifyContent="center"
                       alignItems="center"
                       flexShrink={0}
                       marginTop={1}
                     >
-                      <SizableText size="$2" color="#7B6B9E" fontWeight="700">{i + 1}</SizableText>
+                      <SizableText size="$2" color={colors.accent} fontWeight="900">{i + 1}</SizableText>
                     </YStack>
-                    <SizableText size="$3" color="#D1D5DB" flex={1} lineHeight={22}>
+                    <SizableText size="$3" color={colors.textSoft} flex={1} lineHeight={22}>
                       {q}
                     </SizableText>
                   </XStack>

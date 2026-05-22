@@ -12,7 +12,6 @@ import {
   Spinner,
   Input,
   Separator,
-  Sheet,
 } from '@blinkdotnew/mobile-ui';
 import {
   ArrowLeft,
@@ -43,6 +42,7 @@ import {
   normalizeAppLanguage,
 } from '@/services/sourceGatewayService';
 import type { Language } from '@/types';
+import { PreviewModal } from '@/components/premium';
 
 // ─── Brand tokens ─────────────────────────────────────────────────────────────
 const PRIMARY = '#5B7E6B';
@@ -103,6 +103,7 @@ function InlineDailyTokens({
   tokens: WolReferenceToken[];
   onReference: (ref: WolReference) => void;
 }) {
+  const colors = usePremiumTheme();
   return (
     <XStack flexWrap="wrap" gap="$1" alignItems="baseline">
       {tokens.map((token, index) => {
@@ -112,7 +113,7 @@ function InlineDailyTokens({
             <SizableText
               key={index}
               size="$3"
-              color={TEXT_SECONDARY}
+              color={colors.textSoft}
               lineHeight={22}
               width={token.text.includes('\n') ? '100%' : undefined}
             >
@@ -124,7 +125,7 @@ function InlineDailyTokens({
           <SizableText
             key={index}
             size="$3"
-            color={ref.kind === 'bible' || ref.kind === 'crossref' ? '#78B58A' : '#8DB4E2'}
+            color={ref.kind === 'bible' || ref.kind === 'crossref' ? colors.primary : colors.accent}
             lineHeight={22}
             textDecorationLine="underline"
             onPress={() => onReference(ref)}
@@ -148,6 +149,7 @@ function ReferenceSheet({
   onReference: (ref: WolReference) => void;
   t: ReturnType<typeof createTranslator>;
 }) {
+  const colors = usePremiumTheme();
   const [preview, setPreview] = useState<WolPreview | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -164,38 +166,28 @@ function ReferenceSheet({
   }, [reference]);
 
   return (
-    <Sheet open={!!reference} onOpenChange={(v: boolean) => { if (!v) onClose(); }} snapPoints={[72]} modal={false} dismissOnSnapToBottom>
-      <Sheet.Frame backgroundColor={BG} borderTopLeftRadius="$6" borderTopRightRadius="$6">
-        <Sheet.Handle backgroundColor={CARD_BORDER} />
-        <ScrollView flex={1}>
-          <YStack padding="$5" gap="$4">
-            <SizableText size="$2" color={PRIMARY} fontWeight="800">
-              {reference?.kind === 'bible' || reference?.kind === 'crossref' ? t('bible_reference').toUpperCase() : t('publication').toUpperCase()}
-            </SizableText>
-            <SizableText size="$5" color={TEXT_PRIMARY} fontWeight="800">{reference?.text}</SizableText>
-            {loading ? (
-              <XStack gap="$2" alignItems="center">
-                <Spinner size="small" color={PRIMARY} />
-                <SizableText color={TEXT_SECONDARY}>{t('loading_reference')}</SizableText>
-              </XStack>
-            ) : error ? (
-              <SizableText color="#EF8080">{error}</SizableText>
-            ) : preview ? (
-              <YStack gap="$3">
-                {preview.title && preview.title !== reference?.text ? (
-                  <SizableText size="$4" color="#D1D5DB" fontWeight="700">{preview.title}</SizableText>
-                ) : null}
-                {preview.tokens?.length ? (
-                  <InlineDailyTokens tokens={preview.tokens} onReference={onReference} />
-                ) : (
-                  <SizableText size="$4" color={TEXT_PRIMARY} lineHeight={26}>{preview.content}</SizableText>
-                )}
-              </YStack>
-            ) : null}
-          </YStack>
-        </ScrollView>
-      </Sheet.Frame>
-    </Sheet>
+    <PreviewModal
+      open={!!reference}
+      onClose={onClose}
+      label={reference?.kind === 'bible' || reference?.kind === 'crossref' ? t('bible_reference') : t('publication')}
+      title={reference?.text}
+      loading={loading}
+    >
+      {error ? (
+        <SizableText color={colors.danger}>{error}</SizableText>
+      ) : preview ? (
+        <YStack gap="$3">
+          {preview.title && preview.title !== reference?.text ? (
+            <SizableText size="$4" color={colors.textMuted} fontWeight="800">{preview.title}</SizableText>
+          ) : null}
+          {preview.tokens?.length ? (
+            <InlineDailyTokens tokens={preview.tokens} onReference={onReference} />
+          ) : (
+            <SizableText size="$4" color={colors.text} lineHeight={28}>{preview.content}</SizableText>
+          )}
+        </YStack>
+      ) : null}
+    </PreviewModal>
   );
 }
 

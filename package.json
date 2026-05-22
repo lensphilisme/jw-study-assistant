@@ -1,7 +1,7 @@
 {
   "name": "blink-expo-starter",
   "main": "expo-router/entry",
-  "version": "1.0.8",
+  "version": "1.0.14",
   "private": true,
   "scripts": {
     "dev": "node tools/dev.js",
@@ -23,7 +23,8 @@
     "lint": "set EXPO_NO_TELEMETRY=1&& npx expo lint",
     "prebuild": "set EXPO_NO_TELEMETRY=1&& npx expo prebuild",
     "prebuild:clean": "set EXPO_NO_TELEMETRY=1&& npx expo prebuild --clean",
-    "version:patch": "node tools/bump-version.js"
+    "version:patch": "node tools/bump-version.js",
+    "scan:weekly": "node tools/weekly-bug-scanner.js"
   },
   "dependencies": {
     "@blinkdotnew/mobile-ui": "2.0.0",

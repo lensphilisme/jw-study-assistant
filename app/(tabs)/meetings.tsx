@@ -40,6 +40,7 @@ import {
   type WolReferenceToken,
 } from '@/services/wolReferenceService';
 import { normalizeAppLanguage, structureHtmlPart } from '@/services/sourceGatewayService';
+import { usePremiumTheme } from '@/hooks/usePremiumTheme';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface MeetingPart {
@@ -155,21 +156,40 @@ function imagesFromHtml(html: string): Array<{ url: string; alt?: string }> {
 }
 
 function videoFromHtml(html: string): MeetingPart['video'] | undefined {
-  const anchor = /<a\b([^>]*data-video="([^"]+)"[^>]*)>([\s\S]*?)<\/a>\s*([\s\S]{0,220})/i.exec(html);
-  if (!anchor) return undefined;
-  const attrs = decodeHtml(anchor[2]);
-  const pub = /[?&]pub=([^&]+)/.exec(attrs)?.[1] ?? '';
-  const issue = /[?&]issue=([^&]+)/.exec(attrs)?.[1] ?? '';
-  const track = /[?&]track=([^&]+)/.exec(attrs)?.[1] ?? '';
-  const langwritten = /[?&]langwritten=([^&]+)/.exec(attrs)?.[1] ?? '';
-  if (!pub || !issue || !track || !langwritten) return undefined;
-  return {
-    title: stripTags(`${anchor[3]} ${anchor[4]}`).replace(/\s+Then ask.*$/i, '').trim(),
-    pub,
-    issue,
-    track,
-    langwritten,
-  };
+  const re = /<a\b([^>]*)>([\s\S]*?)<\/a>\s*([\s\S]{0,220})/gi;
+  let anchor: RegExpExecArray | null;
+  while ((anchor = re.exec(html)) !== null) {
+    const attrs = decodeHtml(anchor[1]);
+    const labelHtml = anchor[2];
+    const afterLabel = anchor[3];
+    const href = decodeHtml(/href="([^"]+)"/i.exec(attrs)?.[1] ?? '');
+    const dataVideo = decodeHtml(/data-video="([^"]+)"/i.exec(attrs)?.[1] ?? '');
+    const finder = dataVideo || href;
+    if (!/(data-video|lank=.*VIDEO|\/finder\?|video)/i.test(`${attrs} ${finder} ${labelHtml}`)) continue;
+
+    let pub = /[?&]pub=([^&]+)/.exec(finder)?.[1] ?? '';
+    let issue = /[?&]issue=([^&]+)/.exec(finder)?.[1] ?? '';
+    let track = /[?&]track=([^&]+)/.exec(finder)?.[1] ?? '';
+    let langwritten = /[?&](?:langwritten|wtlocale)=([^&]+)/.exec(finder)?.[1] ?? '';
+
+    const lank = /[?&]lank=([^&]+)/.exec(finder)?.[1] ?? '';
+    const lankMatch = /^pub-([a-z0-9]+)_(\d{6})_(\d+)_VIDEO/i.exec(lank);
+    if (lankMatch) {
+      pub = pub || lankMatch[1];
+      issue = issue || lankMatch[2];
+      track = track || lankMatch[3];
+    }
+
+    if (!pub || !track) continue;
+    return {
+      title: stripTags(`${labelHtml} ${afterLabel}`).replace(/\s+Then ask.*$/i, '').trim(),
+      pub,
+      issue,
+      track,
+      langwritten: langwritten || '',
+    };
+  }
+  return undefined;
 }
 
 function parseMeetingArticleParts(html: string, workbookUrl: string): MeetingPart[] {
@@ -376,14 +396,15 @@ const SECTION_LABELS: Record<MeetingPart['section'], { key: string; color: strin
 };
 
 function PartCard({ part, onPress, displaySymbol }: { part: MeetingPart; onPress: () => void; displaySymbol: string }) {
+  const colors = usePremiumTheme();
   const sc = SECTION_LABELS[part.section];
   return (
     <Card
-      backgroundColor="#2C2C2E"
-      borderRadius="$4"
+      backgroundColor={colors.surface}
+      borderRadius="$7"
       padding="$4"
       borderWidth={1}
-      borderColor="#3A3A3C"
+      borderColor={colors.border}
       borderLeftWidth={3}
       borderLeftColor={sc.color}
       pressStyle={{ opacity: 0.8 }}
@@ -405,8 +426,8 @@ function PartCard({ part, onPress, displaySymbol }: { part: MeetingPart; onPress
           <XStack justifyContent="space-between" alignItems="flex-start">
             <SizableText
               size="$4"
-              color="#F2F2F7"
-              fontWeight="700"
+              color={colors.text}
+              fontWeight="900"
               flex={1}
               numberOfLines={2}
               lineHeight={20}
@@ -415,21 +436,21 @@ function PartCard({ part, onPress, displaySymbol }: { part: MeetingPart; onPress
             </SizableText>
             {part.time && (
               <YStack
-                backgroundColor="#3A3A3C"
+                backgroundColor={colors.surface2}
                 paddingHorizontal="$2"
                 paddingVertical="$1"
                 borderRadius="$2"
                 marginLeft="$2"
                 flexShrink={0}
               >
-                <SizableText size="$1" color="#9CA3AF" fontWeight="600">
+                <SizableText size="$1" color={colors.textMuted} fontWeight="700">
                   {part.time}
                 </SizableText>
               </YStack>
             )}
           </XStack>
           {part.bibleRef && (
-            <SizableText size="$3" color="#7B9E5B">
+            <SizableText size="$3" color={colors.primary}>
               📖 {part.bibleRef}
             </SizableText>
           )}
@@ -438,12 +459,12 @@ function PartCard({ part, onPress, displaySymbol }: { part: MeetingPart; onPress
               {part.references.slice(0, 3).map((ref, i) => (
                 <YStack
                   key={i}
-                  backgroundColor="#3A3A3C"
+                  backgroundColor={colors.surface2}
                   paddingHorizontal="$2"
                   paddingVertical={2}
                   borderRadius="$2"
                 >
-                  <SizableText size="$1" color="#6B7280">
+                  <SizableText size="$1" color={colors.textMuted}>
                     {ref.text}
                   </SizableText>
                 </YStack>
@@ -452,7 +473,7 @@ function PartCard({ part, onPress, displaySymbol }: { part: MeetingPart; onPress
           )}
           {part.hasVideo && (
             <XStack alignItems="center" gap="$1">
-              <SizableText size="$1" color="#EF8C4B">
+              <SizableText size="$1" color={colors.gold}>
                 {translate(displaySymbol, 'video_ai_warning')}
               </SizableText>
             </XStack>
@@ -465,8 +486,8 @@ function PartCard({ part, onPress, displaySymbol }: { part: MeetingPart; onPress
       <XStack paddingTop="$2" gap="$2">
         <Button
           size="$2"
-          backgroundColor="#3A3A3C"
-          color="#5B7E6B"
+          backgroundColor={colors.glow}
+          color={colors.primary}
           borderRadius="$3"
           onPress={onPress}
           fontSize={11}
@@ -481,6 +502,7 @@ function PartCard({ part, onPress, displaySymbol }: { part: MeetingPart; onPress
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function MeetingsScreen() {
   const router = useRouter();
+  const colors = usePremiumTheme();
   const language = useAppStore((s) => s.language);
   const appLanguage = useAppStore((s) => s.appLanguage);
   const contentLanguage = useAppStore((s) => s.contentLanguage);
@@ -616,36 +638,36 @@ export default function MeetingsScreen() {
   const ErrorState = () => (
     <YStack padding="$5" alignItems="center" gap="$4">
       <Card
-        backgroundColor="#2C2C2E"
-        borderRadius="$4"
+        backgroundColor={colors.surface}
+        borderRadius="$7"
         padding="$5"
         borderWidth={1}
-        borderColor="#3A3A3C"
+        borderColor={colors.border}
         alignItems="center"
         gap="$3"
         width="100%"
       >
         <AlertCircle size={36} color="#EF4444" />
-        <SizableText size="$5" color="#F2F2F7" fontWeight="700" textAlign="center">
-          Could Not Load Schedule
+        <SizableText size="$5" color={colors.text} fontWeight="900" textAlign="center">
+          {translate(displaySymbol, 'could_not_load_schedule')}
         </SizableText>
-        <SizableText size="$3" color="#9CA3AF" textAlign="center" lineHeight={20}>
-          Check your connection. Meeting schedules are available on WOL (Watchtower Online Library).
+        <SizableText size="$3" color={colors.textMuted} textAlign="center" lineHeight={20}>
+          {translate(displaySymbol, 'check_connection_wol_hint')}
         </SizableText>
         <XStack gap="$2" flexWrap="wrap" justifyContent="center">
           <Button
             size="$3"
-            backgroundColor="#3A3A3C"
-            color="#F2F2F7"
+            backgroundColor={colors.surface2}
+            color={colors.text}
             borderRadius="$3"
             onPress={() => (activeTab === 'midweek' ? fetchMidweek() : fetchWeekend())}
-            icon={<RefreshCw size={14} color="#9CA3AF" />}
+            icon={<RefreshCw size={14} color={colors.textMuted} />}
           >
             Try Again
           </Button>
           <Button
             size="$3"
-            backgroundColor="#5B7E6B"
+            backgroundColor={colors.primaryDeep}
             color="white"
             borderRadius="$3"
             onPress={() => Linking.openURL('https://wol.jw.org')}
@@ -660,7 +682,7 @@ export default function MeetingsScreen() {
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#1C1C1E' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
       <YStack flex={1}>
         {/* ── Header ── */}
         <XStack
@@ -670,9 +692,9 @@ export default function MeetingsScreen() {
           alignItems="center"
           gap="$2"
         >
-          <BookOpen size={22} color="#5B7E6B" />
-          <H2 color="#F2F2F7" fontWeight="800" fontSize={24}>
-            Meeting Preparation
+          <BookOpen size={22} color={colors.primary} />
+          <H2 color={colors.text} fontWeight="900" fontSize={28}>
+            {translate(displaySymbol, 'meeting_preparation')}
           </H2>
         </XStack>
 
@@ -685,17 +707,17 @@ export default function MeetingsScreen() {
         >
           <Button
             size="$3"
-            backgroundColor="#2C2C2E"
-            color="#9CA3AF"
+            backgroundColor={colors.surface}
+            color={colors.textMuted}
             borderRadius="$3"
             onPress={handlePrevWeek}
-            icon={<ChevronLeft size={16} color="#9CA3AF" />}
+            icon={<ChevronLeft size={16} color={colors.textMuted} />}
             width={44}
             height={44}
           />
           <YStack alignItems="center" gap="$1" flex={1}>
             <XStack alignItems="center" gap="$2">
-              <SizableText size="$4" color="#F2F2F7" fontWeight="700">
+              <SizableText size="$4" color={colors.text} fontWeight="900">
                 {weekLabel}
               </SizableText>
               {isCurrentWeek && (
@@ -711,17 +733,17 @@ export default function MeetingsScreen() {
                 </YStack>
               )}
             </XStack>
-            <SizableText size="$2" color="#6B7280">
+            <SizableText size="$2" color={colors.textMuted}>
               Week {week}, {year}
             </SizableText>
           </YStack>
           <Button
             size="$3"
-            backgroundColor="#2C2C2E"
-            color="#9CA3AF"
+            backgroundColor={colors.surface}
+            color={colors.textMuted}
             borderRadius="$3"
             onPress={handleNextWeek}
-            icon={<ChevronRight size={16} color="#9CA3AF" />}
+            icon={<ChevronRight size={16} color={colors.textMuted} />}
             width={44}
             height={44}
           />
@@ -739,14 +761,14 @@ export default function MeetingsScreen() {
           />
         </YStack>
 
-        <Separator borderColor="#2C2C2E" />
+        <Separator borderColor={colors.border} />
 
         {/* ── Content ── */}
         <YStack flex={1}>
           {loading && (
             <YStack flex={1} justifyContent="center" alignItems="center" gap="$3">
-              <Spinner size="large" color="#5B7E6B" />
-              <SizableText size="$3" color="#9CA3AF">
+              <Spinner size="large" color={colors.primary} />
+              <SizableText size="$3" color={colors.textMuted}>
                 Loading {activeTab === 'midweek' ? 'meeting schedule' : 'Watchtower articles'}…
               </SizableText>
             </YStack>

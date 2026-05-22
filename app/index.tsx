@@ -2,10 +2,10 @@ import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useTheme } from '@/constants/theme';
+import { usePremiumTheme } from '@/hooks/usePremiumTheme';
 
 export default function Index() {
-  const { t } = useTheme();
+  const t = usePremiumTheme();
   const [loading, setLoading] = useState(true);
   const [onboardingDone, setOnboardingDone] = useState(false);
 
@@ -18,7 +18,7 @@ export default function Index() {
   if (loading) {
     return (
       <View style={{ flex: 1, backgroundColor: t.bg, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={t.copper} />
+        <ActivityIndicator size="large" color={t.primary} />
       </View>
     );
   }

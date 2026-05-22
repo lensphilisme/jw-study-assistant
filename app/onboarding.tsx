@@ -27,6 +27,7 @@ import {
   Card,
   Separator,
 } from '@blinkdotnew/mobile-ui';
+import { usePremiumTheme } from '@/hooks/usePremiumTheme';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -871,6 +872,7 @@ function CompleteStep({
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const colors = usePremiumTheme();
   const setLanguage = useAppStore((s) => s.setLanguage);
   const setAppLanguage = useAppStore((s) => s.setAppLanguage);
   const setContentLanguage = useAppStore((s) => s.setContentLanguage);
@@ -963,7 +965,7 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#1C1C1E' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
       {/* Header with back button + dots */}
       <YStack paddingHorizontal="$6" paddingTop="$2" paddingBottom="$1">
         <XStack alignItems="center" justifyContent="space-between">

@@ -38,6 +38,7 @@ import { getLanguages } from '@/services/languageService';
 import { createTranslator, DISPLAY_LANGUAGES, saveLanguagePair } from '@/services/i18nService';
 import type { Language } from '@/types';
 import { usePremiumTheme } from '@/hooks/usePremiumTheme';
+import { AppScreen, AppHeader, PremiumCard, SectionHeader, ThemeToggle } from '@/components/premium';
 
 const STORAGE_KEYS = {
   LANGUAGE: 'jw_sa:language',
@@ -63,18 +64,7 @@ const DEFAULT_NOTIFICATIONS: NotificationsConfig = {
 
 // ── Section label ─────────────────────────────────────────────
 function SectionLabel({ label }: { label: string }) {
-  return (
-    <SizableText
-      size="$2"
-      color="#9CA3AF"
-      fontWeight="700"
-      letterSpacing={1.5}
-      paddingLeft="$2"
-      paddingBottom="$1"
-    >
-      {label.toUpperCase()}
-    </SizableText>
-  );
+  return <SectionHeader title={label} />;
 }
 
 // ── Row: nav arrow ────────────────────────────────────────────
@@ -87,6 +77,7 @@ interface NavRowProps {
   destructive?: boolean;
 }
 function NavRow({ icon, label, value, onPress, last, destructive }: NavRowProps) {
+  const colors = usePremiumTheme();
   return (
     <YStack>
       <XStack
@@ -98,13 +89,13 @@ function NavRow({ icon, label, value, onPress, last, destructive }: NavRowProps)
         onPress={onPress}
       >
         <YStack width={28} alignItems="center">{icon}</YStack>
-        <SizableText size="$4" color={destructive ? '#EF4444' : '#F2F2F7'} flex={1}>
+        <SizableText size="$4" color={destructive ? colors.rose : colors.text} fontWeight="700" flex={1}>
           {label}
         </SizableText>
-        {value ? <SizableText size="$3" color="#6B7280">{value}</SizableText> : null}
-        <ChevronRight size={16} color={destructive ? '#EF4444' : '#6B7280'} />
+        {value ? <SizableText size="$3" color={colors.textMuted}>{value}</SizableText> : null}
+        <ChevronRight size={16} color={destructive ? colors.rose : colors.textMuted} />
       </XStack>
-      {!last && <Separator borderColor="#3A3A3C" marginLeft={56} />}
+      {!last && <Separator borderColor={colors.border} marginLeft={56} />}
     </YStack>
   );
 }
@@ -119,13 +110,14 @@ interface ToggleRowProps {
   last?: boolean;
 }
 function ToggleRow({ icon, label, subtitle, value, onValueChange, last }: ToggleRowProps) {
+  const colors = usePremiumTheme();
   return (
     <YStack>
       <XStack paddingHorizontal="$4" paddingVertical="$3" alignItems="center" gap="$3">
         <YStack width={28} alignItems="center">{icon}</YStack>
         <YStack flex={1} gap="$1">
-          <SizableText size="$4" color="#F2F2F7">{label}</SizableText>
-          {subtitle ? <SizableText size="$2" color="#6B7280">{subtitle}</SizableText> : null}
+          <SizableText size="$4" color={colors.text} fontWeight="700">{label}</SizableText>
+          {subtitle ? <SizableText size="$2" color={colors.textMuted}>{subtitle}</SizableText> : null}
         </YStack>
         <Switch
           checked={value}
@@ -143,17 +135,7 @@ function ToggleRow({ icon, label, subtitle, value, onValueChange, last }: Toggle
 
 // ── SettingsCard ──────────────────────────────────────────────
 function SettingsCard({ children }: { children: React.ReactNode }) {
-  return (
-    <Card
-      backgroundColor="#2C2C2E"
-      borderRadius="$4"
-      borderWidth={1}
-      borderColor="#3A3A3C"
-      overflow="hidden"
-    >
-      {children}
-    </Card>
-  );
+  return <PremiumCard padded={false}>{children}</PremiumCard>;
 }
 
 // ── Language Picker Sheet ─────────────────────────────────────
@@ -168,6 +150,7 @@ interface LanguagePickerProps {
   fixedLanguages?: Language[];
 }
 function LanguagePicker({ open, onClose, currentCode, onSelect, title, placeholder, emptyText, fixedLanguages }: LanguagePickerProps) {
+  const colors = usePremiumTheme();
   const [languages, setLanguages] = useState<Language[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -200,26 +183,26 @@ function LanguagePicker({ open, onClose, currentCode, onSelect, title, placehold
       modal
       dismissOnSnapToBottom
     >
-      <Sheet.Overlay />
-      <Sheet.Frame backgroundColor="#1C1C1E" borderTopLeftRadius="$6" borderTopRightRadius="$6">
-        <Sheet.Handle backgroundColor="#3A3A3C" />
+      <Sheet.Overlay backgroundColor={colors.mode === 'dark' ? 'rgba(0,0,0,0.45)' : 'rgba(24,33,47,0.18)'} />
+      <Sheet.Frame backgroundColor={colors.surface} borderTopLeftRadius="$8" borderTopRightRadius="$8">
+        <Sheet.Handle backgroundColor={colors.borderStrong} />
         <YStack flex={1} padding="$4" gap="$3">
-          <SizableText size="$6" color="#F2F2F7" fontWeight="700">{title}</SizableText>
+          <SizableText size="$6" color={colors.text} fontWeight="900">{title}</SizableText>
           <Input
             placeholder={placeholder}
             value={search}
             onChangeText={setSearch}
-            backgroundColor="#2C2C2E"
-            borderColor="#3A3A3C"
-            color="#F2F2F7"
-            placeholderTextColor="#6B7280"
+            backgroundColor={colors.surface2}
+            borderColor={colors.border}
+            color={colors.text}
+            placeholderTextColor={colors.textMuted}
             borderRadius="$4"
             height={42}
             autoFocus={Platform.OS !== 'web'}
           />
           {loading ? (
             <YStack flex={1} justifyContent="center" alignItems="center" paddingTop="$8">
-              <Spinner size="large" color="#5B7E6B" />
+              <Spinner size="large" color={colors.primary} />
             </YStack>
           ) : (
             <ScrollView flex={1} showsVerticalScrollIndicator={false}>
@@ -229,29 +212,29 @@ function LanguagePicker({ open, onClose, currentCode, onSelect, title, placehold
                   return (
                     <XStack
                       key={lang.code}
-                      backgroundColor={isSelected ? 'rgba(91,126,107,0.15)' : 'transparent'}
+                      backgroundColor={isSelected ? colors.glow : 'transparent'}
                       borderRadius="$3"
                       paddingHorizontal="$3"
                       paddingVertical="$3"
                       alignItems="center"
                       gap="$3"
-                      pressStyle={{ opacity: 0.7, backgroundColor: 'rgba(91,126,107,0.1)' }}
+                      pressStyle={{ opacity: 0.7, backgroundColor: colors.glow }}
                       onPress={() => { onSelect(lang); onClose(); }}
                     >
                       <YStack flex={1} gap="$1">
-                        <SizableText size="$4" color={isSelected ? '#5B7E6B' : '#F2F2F7'} fontWeight={isSelected ? '700' : '400'}>
+                        <SizableText size="$4" color={isSelected ? colors.primary : colors.text} fontWeight={isSelected ? '900' : '600'}>
                           {lang.name}
                         </SizableText>
                         {lang.name !== lang.englishName && (
-                          <SizableText size="$2" color="#6B7280">{lang.englishName}</SizableText>
+                          <SizableText size="$2" color={colors.textMuted}>{lang.englishName}</SizableText>
                         )}
                       </YStack>
-                      {isSelected && <Check size={18} color="#5B7E6B" />}
+                      {isSelected && <Check size={18} color={colors.primary} />}
                     </XStack>
                   );
                 })}
                 {filtered.length === 0 && (
-                  <SizableText color="#6B7280" textAlign="center" paddingTop="$6">
+                  <SizableText color={colors.textMuted} textAlign="center" paddingTop="$6">
                     {emptyText}
                   </SizableText>
                 )}
@@ -270,6 +253,7 @@ interface DisclaimerSheetProps {
   onClose: () => void;
 }
 function DisclaimerSheet({ open, onClose, t }: DisclaimerSheetProps & { t: ReturnType<typeof createTranslator> }) {
+  const colors = usePremiumTheme();
   return (
     <Sheet
       open={open}
@@ -278,44 +262,44 @@ function DisclaimerSheet({ open, onClose, t }: DisclaimerSheetProps & { t: Retur
       modal
       dismissOnSnapToBottom
     >
-      <Sheet.Overlay />
-      <Sheet.Frame backgroundColor="#1C1C1E" borderTopLeftRadius="$6" borderTopRightRadius="$6">
-        <Sheet.Handle backgroundColor="#3A3A3C" />
+      <Sheet.Overlay backgroundColor={colors.mode === 'dark' ? 'rgba(0,0,0,0.45)' : 'rgba(24,33,47,0.18)'} />
+      <Sheet.Frame backgroundColor={colors.surface} borderTopLeftRadius="$8" borderTopRightRadius="$8">
+        <Sheet.Handle backgroundColor={colors.borderStrong} />
         <YStack flex={1} padding="$5" gap="$4">
           <XStack gap="$3" alignItems="center">
-            <Info size={22} color="#5B7E6B" />
-            <SizableText size="$6" color="#F2F2F7" fontWeight="700">{t('about_app')}</SizableText>
+            <Info size={22} color={colors.primary} />
+            <SizableText size="$6" color={colors.text} fontWeight="900">{t('about_app')}</SizableText>
           </XStack>
           <YStack
-            backgroundColor="#2C2C2E"
-            borderRadius="$4"
+            backgroundColor={colors.surface2}
+            borderRadius="$6"
             padding="$4"
             borderWidth={1}
-            borderColor="#3A3A3C"
+            borderColor={colors.border}
           >
-            <SizableText size="$3" color="#D1D5DB" lineHeight={22}>
+            <SizableText size="$3" color={colors.textSoft} lineHeight={22}>
               {t('disclaimer_full')}
             </SizableText>
           </YStack>
           <XStack gap="$3">
             <Button
               flex={1}
-              backgroundColor="rgba(91,126,107,0.15)"
-              borderColor="rgba(91,126,107,0.3)"
+              backgroundColor={colors.glow}
+              borderColor={colors.borderStrong}
               borderWidth={1}
-              color="#5B7E6B"
-              icon={<ExternalLink size={14} color="#5B7E6B" />}
+              color={colors.primary}
+              icon={<ExternalLink size={14} color={colors.primary} />}
               onPress={() => Linking.openURL('https://www.jw.org').catch(() => {})}
             >
               JW.org
             </Button>
             <Button
               flex={1}
-              backgroundColor="rgba(90,123,158,0.15)"
-              borderColor="rgba(90,123,158,0.3)"
+              backgroundColor={colors.glowBlue}
+              borderColor={colors.borderStrong}
               borderWidth={1}
-              color="#5A7B9E"
-              icon={<ExternalLink size={14} color="#5A7B9E" />}
+              color={colors.accent}
+              icon={<ExternalLink size={14} color={colors.accent} />}
               onPress={() => Linking.openURL('https://wol.jw.org').catch(() => {})}
             >
               WOL
@@ -323,10 +307,10 @@ function DisclaimerSheet({ open, onClose, t }: DisclaimerSheetProps & { t: Retur
           </XStack>
           <Button
             onPress={onClose}
-            backgroundColor="#2C2C2E"
-            borderColor="#3A3A3C"
+            backgroundColor={colors.surface2}
+            borderColor={colors.border}
             borderWidth={1}
-            color="#9CA3AF"
+            color={colors.textMuted}
           >
             {t('close')}
           </Button>
@@ -434,23 +418,9 @@ export default function SettingsScreen() {
   const themeLabel = { dark: t('dark'), light: t('light'), system: t('system') };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
-      <ScrollView flex={1} showsVerticalScrollIndicator={false}>
-        <YStack padding="$5" gap="$5" paddingBottom="$10">
+    <AppScreen scroll>
           {/* Header */}
-          <YStack
-            padding="$5"
-            borderRadius="$7"
-            backgroundColor={colors.surface}
-            borderWidth={1}
-            borderColor={colors.border}
-            gap="$2"
-          >
-            <SizableText size="$8" color={colors.text} fontWeight="900" letterSpacing={-0.6}>{t('settings')}</SizableText>
-            <SizableText size="$3" color={colors.textMuted} lineHeight={20}>
-              {t('language_content')} · {t('appearance')} · {t('data')}
-            </SizableText>
-          </YStack>
+          <AppHeader title={t('settings')} subtitle={`${t('language_content')} · ${t('appearance')} · ${t('data')}`} />
 
           {/* ── 1. Language & Content ── */}
           <YStack gap="$2">
@@ -528,32 +498,9 @@ export default function SettingsScreen() {
               <YStack paddingHorizontal="$4" paddingVertical="$3" gap="$3">
                 <XStack gap="$3" alignItems="center">
                   <Sun size={18} color="#F59E0B" />
-                  <SizableText size="$4" color="#F2F2F7" flex={1}>{t('theme')}</SizableText>
+                  <SizableText size="$4" color={colors.text} fontWeight="800" flex={1}>{t('theme')}</SizableText>
                 </XStack>
-                <XStack gap="$2">
-                  {(['dark', 'light', 'system'] as const).map((t) => (
-                    <YStack
-                      key={t}
-                      flex={1}
-                      backgroundColor={theme === t ? '#5B7E6B' : '#1C1C1E'}
-                      borderRadius="$3"
-                      padding="$2"
-                      alignItems="center"
-                      borderWidth={1}
-                      borderColor={theme === t ? '#5B7E6B' : '#3A3A3C'}
-                      pressStyle={{ opacity: 0.75 }}
-                      onPress={() => handleTheme(t)}
-                    >
-                      <SizableText
-                        size="$3"
-                        color={theme === t ? 'white' : '#9CA3AF'}
-                        fontWeight={theme === t ? '700' : '400'}
-                      >
-                        {themeLabel[t]}
-                      </SizableText>
-                    </YStack>
-                  ))}
-                </XStack>
+                <ThemeToggle value={theme} onChange={handleTheme} />
               </YStack>
             </SettingsCard>
           </YStack>
@@ -569,7 +516,7 @@ export default function SettingsScreen() {
               />
               <YStack paddingHorizontal="$4" paddingVertical="$3" gap="$2">
                 <SizableText size="$2" color="#6B7280">{t('app_version')}</SizableText>
-                <SizableText size="$4" color="#9CA3AF">1.0.7</SizableText>
+                <SizableText size="$4" color="#9CA3AF">1.0.14</SizableText>
               </YStack>
               <Separator borderColor="#3A3A3C" />
               <XStack paddingHorizontal="$4" paddingVertical="$3" gap="$2">
@@ -648,9 +595,6 @@ export default function SettingsScreen() {
               {t('short_disclaimer')}
             </SizableText>
           </YStack>
-        </YStack>
-      </ScrollView>
-
       {/* Language picker sheet */}
       <LanguagePicker
         open={displayLangPickerOpen}
@@ -679,6 +623,6 @@ export default function SettingsScreen() {
         onClose={() => setDisclaimerOpen(false)}
         t={t}
       />
-    </SafeAreaView>
+    </AppScreen>
   );
 }

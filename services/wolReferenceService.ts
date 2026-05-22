@@ -38,6 +38,16 @@ export interface WolPreview {
   sourceUrl?: string;
 }
 
+export interface UniversalReferenceResolution {
+  type: WolReference['kind'];
+  title: string;
+  exactText: string;
+  tokens: WolReferenceToken[];
+  nestedRefs: WolReference[];
+  media: NonNullable<WolPreview['media']>;
+  sourceUrl?: string;
+}
+
 const WOL_BASE = 'https://wol.jw.org';
 const textCache = new Map<string, { text: string; contentType: string; expiresAt: number }>();
 const previewCache = new Map<string, WolPreview>();
@@ -528,12 +538,12 @@ export async function fetchWolReferencePreview(ref: WolReference): Promise<WolPr
           const parsed = jsonPreview(text);
           if (parsed?.content) return parsed;
         }
-        // Publication section extraction: if § is present in ref.text, extract only those paragraphs
+        // Publication section extraction: if paragraph markers are present, extract only those paragraphs.
         let articleHtml = '';
         let title = '';
         let content = '';
-        if (ref.kind === 'publication' && /§\s*\d+(-\d+)?/.test(ref.text)) {
-          // Try to extract all requested paragraphs (e.g., § 8-9 or § 8)
+        if (ref.kind === 'publication' && hasParagraphMarker(ref.text)) {
+          // Try to extract all requested paragraphs (e.g., ¶ 8-9, § 8, par. 8)
           articleHtml = extractHashRangeHtml(text, ref.href);
           // If not found, fallback to best available content
           if (!articleHtml || articleHtml.length < 40) articleHtml = extractReadableArticleHtml(text);
@@ -602,6 +612,32 @@ export async function resolveReference(
       }
     : { ...ref, href: absoluteWolUrl(ref.href) };
   return fetchWolReferencePreview(normalized);
+}
+
+export async function resolveUniversalReference(
+  ref: WolReference | string,
+  language?: Partial<WolLanguageConfig> | null,
+): Promise<UniversalReferenceResolution> {
+  const preview = await resolveReference(ref, language);
+  const type = preview.type ?? (typeof ref === 'string'
+    ? (/^\d?\s*[A-Z][\w.]*\s+\d+:\d+/i.test(ref) ? 'bible' : 'publication')
+    : ref.kind);
+  const fallbackTokens: WolReferenceToken[] = preview.content
+    ? [{ kind: 'text', text: preview.content }]
+    : [];
+  return {
+    type,
+    title: preview.title,
+    exactText: preview.exactText ?? preview.content,
+    tokens: preview.tokens?.length ? preview.tokens : fallbackTokens,
+    nestedRefs: preview.nestedRefs ?? [],
+    media: preview.media ?? [],
+    sourceUrl: preview.sourceUrl ?? preview.url,
+  };
+}
+
+function hasParagraphMarker(text: string): boolean {
+  return /(?:[¶§]|\u00c2\u00b6|\u00c2\u00a7|par\.?|paras?\.?)\s*\d+(?:\s*[-,]\s*\d+)*/i.test(text);
 }
 
 export async function fetchSearchSuggestions(

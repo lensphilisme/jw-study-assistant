@@ -25,7 +25,13 @@ function WebStyleReset() {
   return (
     <style
       dangerouslySetInnerHTML={{
-        __html: 'input:focus,textarea:focus{outline:none!important}',
+        __html: `
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Newsreader:opsz,wght@6..72,600;6..72,700;6..72,800&display=swap');
+          *{box-sizing:border-box}
+          html,body,#root{min-height:100%;background:#070A12}
+          body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+          input:focus,textarea:focus{outline:none!important}
+        `,
       }}
     />
   );

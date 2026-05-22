@@ -44,6 +44,8 @@ import {
 } from '@/services/wolReferenceService';
 import { gatewayResolveReference } from '@/services/sourceGatewayService';
 import type { GeneratedAnswer } from '@/types';
+import { PreviewModal } from '@/components/premium';
+import { usePremiumTheme } from '@/hooks/usePremiumTheme';
 
 // ── Types ─────────────────────────────────────────────────────
 type AnswerLength = 'short' | 'medium' | 'long';
@@ -64,6 +66,8 @@ interface ArticleImage {
   url: string;
   caption: string;
   alt?: string;
+  width?: number;
+  height?: number;
 }
 
 interface ParagraphGroup {
@@ -121,6 +125,46 @@ function absoluteWolAsset(src: string): string {
   return `https://wol.jw.org${src.startsWith('/') ? src : `/${src}`}`;
 }
 
+function attrValue(tag: string, name: string): string {
+  return new RegExp(`${name}="([^"]*)"`, 'i').exec(tag)?.[1] ?? '';
+}
+
+function bestSrcFromSrcset(srcset: string): string {
+  if (!srcset) return '';
+  const candidates = srcset
+    .split(',')
+    .map((item) => {
+      const [url = '', descriptor = ''] = item.trim().split(/\s+/);
+      const width = /(\d+)w/i.exec(descriptor)?.[1];
+      const density = /(\d+(?:\.\d+)?)x/i.exec(descriptor)?.[1];
+      return {
+        url,
+        score: width ? Number(width) : density ? Number(density) * 1000 : 0,
+      };
+    })
+    .filter((item) => item.url);
+  return candidates.sort((a, b) => b.score - a.score)[0]?.url ?? '';
+}
+
+function bestImageFromFigure(fig: string): ArticleImage | null {
+  const imgTag = /<img\b[^>]*>/i.exec(fig)?.[0] ?? '';
+  if (!imgTag) return null;
+  const src =
+    attrValue(imgTag, 'data-img-size-xl')
+    || attrValue(imgTag, 'data-img-size-lg')
+    || attrValue(imgTag, 'data-img-size-md')
+    || bestSrcFromSrcset(attrValue(imgTag, 'srcset'))
+    || attrValue(imgTag, 'src');
+  if (!src || /thumbnail|sprite|icon/i.test(src)) return null;
+  return {
+    url: absoluteWolAsset(src),
+    alt: attrValue(imgTag, 'alt'),
+    caption: stripHtml(/<figcaption[^>]*>([\s\S]*?)<\/figcaption>/i.exec(fig)?.[1] ?? ''),
+    width: Number(attrValue(imgTag, 'width')) || undefined,
+    height: Number(attrValue(imgTag, 'height')) || undefined,
+  };
+}
+
 function parseParagraphs(html: string): ParsedParagraph[] {
   if (!html) return [];
 
@@ -133,13 +177,8 @@ function parseParagraphs(html: string): ParsedParagraph[] {
   while ((match = segmentRe.exec(html)) !== null) {
     if (match[3]) {
       const fig = match[3];
-      const imgSrc = /<img[^>]+src="([^"]+)"/i.exec(fig)?.[1] ?? '';
-      if (imgSrc) {
-        const image = {
-          url: absoluteWolAsset(imgSrc),
-          alt: /<img[^>]+alt="([^"]*)"/i.exec(fig)?.[1],
-          caption: stripHtml(/<figcaption[^>]*>([\s\S]*?)<\/figcaption>/i.exec(fig)?.[1] ?? ''),
-        };
+      const image = bestImageFromFigure(fig);
+      if (image) {
         const paraMatch = /paragraf(?:o|e)?\s+(\d+)/i.exec(image.caption);
         const target = paraMatch
           ? paragraphs.find((p) => p.number === Number(paraMatch[1]))
@@ -215,15 +254,16 @@ interface AudioPlayerProps {
   onToggle: () => void;
 }
 function AudioPlayer({ audioUrl, isLoaded, isPlaying, onToggle }: AudioPlayerProps) {
+  const colors = usePremiumTheme();
   if (!audioUrl) return null;
 
   return (
     <XStack
-      backgroundColor="#2C2C2E"
-      borderRadius="$4"
+      backgroundColor={colors.surface}
+      borderRadius="$7"
       padding="$3"
       borderWidth={1}
-      borderColor="#3A3A3C"
+      borderColor={colors.border}
       alignItems="center"
       gap="$3"
     >
@@ -231,17 +271,17 @@ function AudioPlayer({ audioUrl, isLoaded, isPlaying, onToggle }: AudioPlayerPro
         width={40}
         height={40}
         borderRadius={20}
-        backgroundColor="rgba(91,126,107,0.15)"
+        backgroundColor={colors.glow}
         justifyContent="center"
         alignItems="center"
         borderWidth={1}
-        borderColor="rgba(91,126,107,0.3)"
+        borderColor={colors.borderStrong}
       >
-        <Volume2 size={18} color="#5B7E6B" />
+        <Volume2 size={18} color={colors.primary} />
       </YStack>
       <YStack flex={1} gap="$1">
-        <SizableText size="$3" color="#F2F2F7" fontWeight="600">Article Audio</SizableText>
-        <SizableText size="$2" color="#6B7280">
+        <SizableText size="$3" color={colors.text} fontWeight="800">Article Audio</SizableText>
+        <SizableText size="$2" color={colors.textMuted}>
           {isLoaded ? 'Ready to play' : 'Loading…'}
         </SizableText>
       </YStack>
@@ -270,22 +310,23 @@ interface ParagraphCardProps {
   onReference: (ref: WolReference) => void;
 }
 function ParagraphCard({ group, activePid, onPrepare, onReference }: ParagraphCardProps) {
+  const colors = usePremiumTheme();
   const combinedText = group.paragraphs.map((p) => p.text).join('\n\n');
   const firstPara = { ...group.paragraphs[0], text: combinedText };
   const isActive = group.paragraphs.some((p) => p.dataPid === activePid);
   return (
     <Card
-      backgroundColor="#2C2C2E"
-      borderRadius="$4"
+      backgroundColor={colors.surface}
+      borderRadius="$7"
       padding="$4"
       borderWidth={1}
-      borderColor={isActive ? '#B77945' : '#3A3A3C'}
-      {...(Platform.OS === 'web' && isActive ? { boxShadow: '0 0 0 2px rgba(183,121,69,0.35)' } as any : {})}
+      borderColor={isActive ? colors.gold : colors.border}
+      {...(Platform.OS === 'web' && isActive ? { boxShadow: `0 0 0 2px ${colors.glow}` } as any : {})}
       gap="$3"
     >
       <XStack gap="$2" alignItems="flex-start">
-        <AlignLeft size={14} color="#7B6B9E" style={{ marginTop: 3 }} />
-        <SizableText size="$3" color="#F2F2F7" flex={1} lineHeight={21} fontWeight="700">
+        <AlignLeft size={14} color={colors.accent} style={{ marginTop: 3 }} />
+        <SizableText size="$3" color={colors.text} flex={1} lineHeight={21} fontWeight="900">
           {group.question}
         </SizableText>
       </XStack>
@@ -293,10 +334,10 @@ function ParagraphCard({ group, activePid, onPrepare, onReference }: ParagraphCa
       {group.paragraphs.map((para) => (
         <YStack key={para.id} gap="$2">
           <XStack gap="$3" alignItems="flex-start">
-            <SizableText size="$3" color={para.dataPid === activePid ? '#D89B64' : '#5B7E6B'} fontWeight="800" width={30}>
+            <SizableText size="$3" color={para.dataPid === activePid ? colors.gold : colors.primary} fontWeight="900" width={30}>
               {para.number}
             </SizableText>
-            <SizableText size="$3" color="#D1D5DB" flex={1} lineHeight={23}>
+            <SizableText size="$3" color={colors.textSoft} flex={1} lineHeight={24}>
               {para.text}
             </SizableText>
           </XStack>
@@ -304,8 +345,15 @@ function ParagraphCard({ group, activePid, onPrepare, onReference }: ParagraphCa
             <YStack key={image.url} marginLeft={42} gap="$2">
               <Image
                 source={{ uri: image.url }}
-                style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 10, backgroundColor: '#111' }}
-                contentFit="cover"
+                style={{
+                  width: '100%',
+                  aspectRatio: image.width && image.height ? image.width / image.height : 16 / 9,
+                  borderRadius: 10,
+                  backgroundColor: '#111',
+                }}
+                contentFit="contain"
+                cachePolicy="disk"
+                transition={180}
               />
               {image.caption ? (
                 <SizableText size="$2" color="#9CA3AF" lineHeight={18}>{image.caption}</SizableText>
@@ -594,38 +642,28 @@ function ReferenceSheet({
   }, [open, reference]);
 
   return (
-    <Sheet open={open} onOpenChange={(v: boolean) => { if (!v) onClose(); }} snapPoints={[75]} modal={false} dismissOnSnapToBottom>
-      <Sheet.Frame backgroundColor="#1C1C1E" borderTopLeftRadius="$6" borderTopRightRadius="$6">
-        <Sheet.Handle backgroundColor="#3A3A3C" />
-        <ScrollView flex={1}>
-          <YStack padding="$5" gap="$4">
-            <SizableText size="$2" color="#5B7E6B" fontWeight="800">
-              {reference?.kind === 'bible' ? 'BIBLE VERSE' : 'PUBLICATION'}
-            </SizableText>
-            <SizableText size="$5" color="#F2F2F7" fontWeight="800">{reference?.text}</SizableText>
-            {loading ? (
-              <XStack gap="$2" alignItems="center">
-                <Spinner size="small" color="#5B7E6B" />
-                <SizableText color="#9CA3AF">Loading reference...</SizableText>
-              </XStack>
-            ) : error ? (
-              <SizableText color="#EF8080">{error}</SizableText>
-            ) : preview ? (
-              <YStack gap="$3">
-                {preview.title && preview.title !== reference?.text ? (
-                  <SizableText size="$4" color="#D1D5DB" fontWeight="700">{preview.title}</SizableText>
-                ) : null}
-                {preview.tokens?.length ? (
-                  <ReferencePreviewTokens tokens={preview.tokens} onReference={onReference} />
-                ) : (
-                  <SizableText size="$4" color="#F2F2F7" lineHeight={26}>{preview.content}</SizableText>
-                )}
-              </YStack>
-            ) : null}
-          </YStack>
-        </ScrollView>
-      </Sheet.Frame>
-    </Sheet>
+    <PreviewModal
+      open={open}
+      onClose={onClose}
+      label={reference?.kind === 'bible' ? 'Bible verse' : 'Publication'}
+      title={reference?.text}
+      loading={loading}
+    >
+      {error ? (
+        <SizableText color="#EF8080">{error}</SizableText>
+      ) : preview ? (
+        <YStack gap="$3">
+          {preview.title && preview.title !== reference?.text ? (
+            <SizableText size="$4" color="#D1D5DB" fontWeight="800">{preview.title}</SizableText>
+          ) : null}
+          {preview.tokens?.length ? (
+            <ReferencePreviewTokens tokens={preview.tokens} onReference={onReference} />
+          ) : (
+            <SizableText size="$4" color="#F2F2F7" lineHeight={28}>{preview.content}</SizableText>
+          )}
+        </YStack>
+      ) : null}
+    </PreviewModal>
   );
 }
 
@@ -666,6 +704,7 @@ function ReferencePreviewTokens({
 
 export default function WatchtowerStudyScreen() {
   const router = useRouter();
+  const colors = usePremiumTheme();
   const { docId } = useLocalSearchParams<{ docId: string }>();
 
   const language = useAppStore((s) => s.language);
@@ -712,23 +751,18 @@ export default function WatchtowerStudyScreen() {
     if (!docId) { setIsLoading(false); return; }
     loadContent();
     loadAudio();
-  }, [docId, langCode]);
+  }, [docId, langCode, langSymbol, wolRegion, wolLangParam]);
 
   const loadContent = async () => {
     setIsLoading(true);
     setLoadError(null);
     try {
-      let raw = await getPublicationContent(docId!, langCode).catch(() => null) as {
+      let raw = await getPublicationContent(docId!, langCode, langSymbol, wolRegion, wolLangParam).catch(() => null) as {
         items?: Array<{ content?: string; title?: string; citation?: string }>;
         title?: string;
       } | string | null;
       if (!raw || typeof raw === 'string') {
         raw = await fetchWolText(`https://wol.jw.org/${langSymbol}/wol/d/${wolRegion}/${wolLangParam}/${docId}`)
-          .then((result) => result.text)
-          .catch(() => null);
-      }
-      if (!raw && langCode !== 'CR') {
-        raw = await fetchWolText(`https://wol.jw.org/ht/wol/d/r60/lp-cr/${docId}`)
           .then((result) => result.text)
           .catch(() => null);
       }
@@ -888,36 +922,36 @@ export default function WatchtowerStudyScreen() {
 
   // ── Render ─────────────────────────────────────────────────
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#1C1C1E' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
       {/* ── Header ── */}
       <XStack paddingHorizontal="$4" paddingTop="$2" paddingBottom="$2" alignItems="center" gap="$2">
         <Button
           chromeless
           size="$3"
           onPress={() => safeBack(router, '/(tabs)/meetings')}
-          icon={<ChevronLeft size={22} color="#9CA3AF" />}
+          icon={<ChevronLeft size={22} color={colors.textMuted} />}
         />
         <YStack flex={1} gap="$1">
-          <SizableText size="$4" color="#F2F2F7" fontWeight="700">Watchtower Study</SizableText>
+          <SizableText size="$4" color={colors.text} fontWeight="900">Watchtower Study</SizableText>
           {studyDates ? (
-            <SizableText size="$2" color="#6B7280">{studyDates}</SizableText>
+            <SizableText size="$2" color={colors.textMuted}>{studyDates}</SizableText>
           ) : null}
         </YStack>
       </XStack>
 
       {isLoading ? (
         <YStack flex={1} justifyContent="center" alignItems="center" gap="$4">
-          <Spinner size="large" color="#5B7E6B" />
+          <Spinner size="large" color={colors.primary} />
           <SizableText size="$3" color="#9CA3AF">Loading article…</SizableText>
         </YStack>
       ) : loadError ? (
         <YStack flex={1} justifyContent="center" alignItems="center" padding="$6" gap="$4">
-          <SizableText size="$4" color="#EF4444" textAlign="center">{loadError}</SizableText>
+          <SizableText size="$4" color={colors.danger} textAlign="center">{loadError}</SizableText>
           <Button
-            backgroundColor="rgba(91,126,107,0.15)"
-            borderColor="rgba(91,126,107,0.3)"
+            backgroundColor={colors.glow}
+            borderColor={colors.borderStrong}
             borderWidth={1}
-            color="#5B7E6B"
+            color={colors.primary}
             onPress={loadContent}
           >
             Retry
@@ -937,13 +971,13 @@ export default function WatchtowerStudyScreen() {
             <YStack gap="$4" paddingBottom="$2" paddingTop="$2">
               {/* Article title + theme scripture */}
               <YStack gap="$2">
-                <SizableText size="$6" color="#F2F2F7" fontWeight="800" lineHeight={32}>
+                <SizableText size="$6" color={colors.text} fontWeight="900" lineHeight={32}>
                   {articleTitle}
                 </SizableText>
                 {themeScripture ? (
                   <XStack gap="$2" alignItems="center">
-                    <BookOpen size={14} color="#5B7E6B" />
-                    <SizableText size="$3" color="#5B7E6B" fontWeight="600" fontStyle="italic">
+                    <BookOpen size={14} color={colors.primary} />
+                    <SizableText size="$3" color={colors.primary} fontWeight="700" fontStyle="italic">
                       {themeScripture}
                     </SizableText>
                   </XStack>
@@ -960,8 +994,8 @@ export default function WatchtowerStudyScreen() {
 
               {/* Paragraphs label */}
               <XStack gap="$2" alignItems="center" paddingTop="$2">
-                <AlignLeft size={14} color="#9CA3AF" />
-                <SizableText size="$2" color="#9CA3AF" fontWeight="700" letterSpacing={1}>
+                <AlignLeft size={14} color={colors.textMuted} />
+                <SizableText size="$2" color={colors.textMuted} fontWeight="900" letterSpacing={1}>
                   {paragraphs.length} PARAGRAPHS
                 </SizableText>
               </XStack>
@@ -969,8 +1003,8 @@ export default function WatchtowerStudyScreen() {
           }
           ListEmptyComponent={
             <YStack alignItems="center" paddingTop="$10" gap="$4">
-              <BookOpen size={48} color="#4B5563" />
-              <SizableText size="$4" color="#9CA3AF" textAlign="center" maxWidth={260}>
+              <BookOpen size={48} color={colors.textMuted} />
+              <SizableText size="$4" color={colors.textMuted} textAlign="center" maxWidth={260}>
                 No article content available. Try opening a different Watchtower article.
               </SizableText>
             </YStack>

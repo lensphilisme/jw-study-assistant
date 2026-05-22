@@ -25,6 +25,7 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { generateAiText } from '@/services/localAiService';
+import { usePremiumTheme } from '@/hooks/usePremiumTheme';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -77,6 +78,7 @@ const TYPE_CONFIG: Record<
 // ─── Plan Card ────────────────────────────────────────────────────────────────
 
 function PlanCard({ plan, onPress }: { plan: StudyPlan; onPress: () => void }) {
+  const colors = usePremiumTheme();
   const cfg = TYPE_CONFIG[plan.type];
   const completed = plan.weeks.filter(w => w.completed).length;
   const total = plan.weeks.length;
@@ -86,10 +88,10 @@ function PlanCard({ plan, onPress }: { plan: StudyPlan; onPress: () => void }) {
   return (
     <TouchableOpacity activeOpacity={0.85} onPress={onPress}>
       <Card
-        backgroundColor="#2C2C2E"
-        borderRadius="$4"
+        backgroundColor={colors.surface}
+        borderRadius="$7"
         borderWidth={1}
-        borderColor="#3A3A3C"
+        borderColor={colors.border}
         padding="$4"
         marginBottom="$3"
         gap="$3"
@@ -97,7 +99,7 @@ function PlanCard({ plan, onPress }: { plan: StudyPlan; onPress: () => void }) {
         <XStack alignItems="flex-start" gap="$3">
           <YStack flex={1} gap="$2">
             <XStack alignItems="center" gap="$2" flexWrap="wrap">
-              <SizableText size="$5" color="#F2F2F7" fontWeight="700" flex={1}>
+              <SizableText size="$5" color={colors.text} fontWeight="900" flex={1}>
                 {plan.title}
               </SizableText>
               {plan.aiGenerated && (
@@ -127,22 +129,22 @@ function PlanCard({ plan, onPress }: { plan: StudyPlan; onPress: () => void }) {
               </SizableText>
             </YStack>
           </YStack>
-          <ChevronRight size={18} color="#4B5563" />
+          <ChevronRight size={18} color={colors.textMuted} />
         </XStack>
 
         {/* Progress bar */}
         <YStack gap="$2">
           <XStack justifyContent="space-between">
-            <SizableText size="$2" color="#9CA3AF">
+            <SizableText size="$2" color={colors.textMuted}>
               Progress
             </SizableText>
-            <SizableText size="$2" color="#F2F2F7" fontWeight="600">
+            <SizableText size="$2" color={colors.text} fontWeight="700">
               {completed}/{total} weeks
             </SizableText>
           </XStack>
           <Progress
             value={Math.round(progress * 100)}
-            backgroundColor="#3A3A3C"
+            backgroundColor={colors.surface2}
             height={6}
             borderRadius="$10"
           >
@@ -157,10 +159,10 @@ function PlanCard({ plan, onPress }: { plan: StudyPlan; onPress: () => void }) {
         {/* Current week topic */}
         {currentWeek && (
           <>
-            <Separator borderColor="#3A3A3C" />
+            <Separator borderColor={colors.border} />
             <XStack gap="$2" alignItems="center">
-              <SizableText size="$2" color="#9CA3AF">Week {currentWeek.weekNumber}:</SizableText>
-              <SizableText size="$3" color="#D1D5DB" flex={1} numberOfLines={1}>
+              <SizableText size="$2" color={colors.textMuted}>Week {currentWeek.weekNumber}:</SizableText>
+              <SizableText size="$3" color={colors.textSoft} flex={1} numberOfLines={1}>
                 {currentWeek.topic}
               </SizableText>
             </XStack>
@@ -423,6 +425,7 @@ function CreatePlanSheet({
 // ─── Empty State ──────────────────────────────────────────────────────────────
 
 function EmptyState({ onCreate }: { onCreate: () => void }) {
+  const colors = usePremiumTheme();
   return (
     <YStack flex={1} alignItems="center" justifyContent="center" gap="$4" paddingTop="$12" paddingHorizontal="$6">
       <YStack
@@ -436,10 +439,10 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
         <BookMarked size={38} color="#5B7E6B" />
       </YStack>
       <YStack gap="$2" alignItems="center">
-        <SizableText size="$5" color="#F2F2F7" fontWeight="700" textAlign="center">
+        <SizableText size="$5" color={colors.text} fontWeight="900" textAlign="center">
           No study plans yet
         </SizableText>
-        <SizableText size="$3" color="#9CA3AF" textAlign="center" maxWidth={280} lineHeight={20}>
+        <SizableText size="$3" color={colors.textMuted} textAlign="center" maxWidth={280} lineHeight={20}>
           Let AI create a personalized plan based on your profile, or build your own with custom topics.
         </SizableText>
       </YStack>
@@ -462,6 +465,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
 
 export default function StudyScreen() {
   const router = useRouter();
+  const colors = usePremiumTheme();
   const [plans, setPlans] = useState<StudyPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -482,7 +486,7 @@ export default function StudyScreen() {
   }, [loadPlans]));
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#1C1C1E' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
       {/* Header */}
       <XStack
         paddingHorizontal="$5"
@@ -491,7 +495,7 @@ export default function StudyScreen() {
         justifyContent="space-between"
         alignItems="center"
       >
-        <H2 color="#F2F2F7" fontWeight="800" style={{ fontSize: 28 }}>
+        <H2 color={colors.text} fontWeight="900" style={{ fontSize: 30 }}>
           Study Plan
         </H2>
         <Button

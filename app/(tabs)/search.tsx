@@ -9,7 +9,6 @@ import {
   Card,
   Button,
   ScrollView,
-  SearchBar,
   Sheet,
   BlinkToggleGroup,
   ChipGroup,
@@ -40,8 +39,8 @@ import {
 } from '@/services/sourceGatewayService';
 import { saveSource } from '@/services/storageService';
 import { generateAiText } from '@/services/localAiService';
-import { premium, premiumCard, premiumHeaderTitle } from '@/constants/premiumTheme';
 import { usePremiumTheme } from '@/hooks/usePremiumTheme';
+import { AppHeader, AppScreen, EmptyState, GradientButton, LoadingState, PremiumBadge, PremiumCard, PreviewModal, SearchBar } from '@/components/premium';
 
 interface SearchResult {
   id: string;
@@ -77,42 +76,27 @@ function tagFromUrl(url: string): string {
 
 // ─── Skeleton card ────────────────────────────────────────────────────────────
 function SkeletonCard() {
+  const premium = usePremiumTheme();
   return (
-    <Card
-      backgroundColor="#2C2C2E"
-      borderRadius="$4"
-      padding="$4"
-      borderWidth={1}
-      borderColor="#3A3A3C"
-      gap="$2"
-    >
-      <YStack height={16} width="70%" backgroundColor="#3A3A3C" borderRadius="$2" />
-      <YStack height={12} width="90%" backgroundColor="#3A3A3C" borderRadius="$2" />
-      <YStack height={12} width="60%" backgroundColor="#3A3A3C" borderRadius="$2" />
-    </Card>
+    <PremiumCard>
+      <YStack height={16} width="70%" backgroundColor={premium.surface3} borderRadius="$2" />
+      <YStack height={12} width="90%" backgroundColor={premium.surface3} borderRadius="$2" />
+      <YStack height={12} width="60%" backgroundColor={premium.surface3} borderRadius="$2" />
+    </PremiumCard>
   );
 }
-
 // ─── Result Card ─────────────────────────────────────────────────────────────
-function ResultCard({ item, onSave, onUseForAI, onPreview, displaySymbol }: {
+function ResultCard({ item, onSave, onPreview, displaySymbol }: {
   item: SearchResult;
   onSave: (item: SearchResult) => void;
-  onUseForAI: (item: SearchResult) => void;
   onPreview: (item: SearchResult) => void;
   displaySymbol: string;
 }) {
+  const premium = usePremiumTheme();
   const isPlusLink = item.title.trim() === '+';
 
   return (
-    <Card
-      backgroundColor={premium.surface}
-      borderRadius="$6"
-      padding="$4"
-      borderWidth={1}
-      borderColor={premium.border}
-      gap="$3.5"
-      pressStyle={{ opacity: 0.85 }}
-    >
+    <PremiumCard>
       <XStack alignItems="center" gap="$2">
         <YStack
           paddingHorizontal="$2"
@@ -169,21 +153,10 @@ function ResultCard({ item, onSave, onUseForAI, onPreview, displaySymbol }: {
         >
           {translate(displaySymbol, 'save')}
         </Button>
-        <Button
-          size="$2"
-          backgroundColor={premium.glow}
-          color={premium.primary}
-          borderRadius="$3"
-          onPress={() => onUseForAI(item)}
-          icon={<Plus size={12} color={premium.primary} />}
-        >
-          {translate(displaySymbol, 'use_for_ai')}
-        </Button>
       </XStack>
-    </Card>
+    </PremiumCard>
   );
 }
-
 export default function SearchScreen() {
   const router = useRouter();
   const colors = usePremiumTheme();
@@ -205,7 +178,7 @@ export default function SearchScreen() {
   const [aiMode, setAiMode] = useState(false);
   const [aiAnswer, setAiAnswer] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiContext, setAiContext] = useState<SearchResult[]>([]);
+  const [aiSources, setAiSources] = useState<SearchResult[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [suggestions, setSuggestions] = useState<Array<{ query: string; caption: string; label?: string | null }>>([]);
   const [previewResult, setPreviewResult] = useState<SearchResult | null>(null);
@@ -240,6 +213,7 @@ export default function SearchScreen() {
     setError(null);
     setCorsBlocked(false);
     setResults([]);
+    setAiSources([]);
     setPage(1);
     setAiAnswer(null);
     setHasSearched(true);
@@ -250,11 +224,12 @@ export default function SearchScreen() {
 
       // AI Research Mode
       if (ai && deduped.length > 0) {
+        const selectedSources = deduped.slice(0, 8);
+        setAiSources(selectedSources);
         setAiLoading(true);
         try {
-          const sourcePack = await gatewayFetchSourcesForAi(deduped.slice(0, 8), contentLanguage);
-          const resultsText = sourcePack.content || deduped
-            .slice(0, 8)
+          const sourcePack = await gatewayFetchSourcesForAi(selectedSources, contentLanguage);
+          const resultsText = sourcePack.content || selectedSources
             .map((r, i) => `[${i + 1}] ${r.title}\n${r.snippet}\nURL: ${r.url}`)
             .join('\n\n');
 
@@ -298,7 +273,7 @@ export default function SearchScreen() {
     } finally {
       setLoading(false);
     }
-  }, [query, aiMode, contentLanguage]);
+  }, [query, aiMode, contentLanguage, displaySymbol]);
 
   // ── Save result ────────────────────────────────────────────────────────────
   const handleSave = useCallback(async (item: SearchResult) => {
@@ -317,12 +292,11 @@ export default function SearchScreen() {
           sourceColor: item.sourceColor,
         },
       });
-    } catch {}
-  }, [language]);
-
-  const handleUseForAI = useCallback((item: SearchResult) => {
-    setAiContext((prev) => (prev.find((r) => r.id === item.id) ? prev : [item, ...prev]));
-  }, []);
+      toast(translate(displaySymbol, 'saved'), { message: item.title, variant: 'success' });
+    } catch {
+      toast(translate(displaySymbol, 'delete_failed'), { message: translate(displaySymbol, 'check_connection_retry'), variant: 'error' });
+    }
+  }, [language, displaySymbol]);
 
   const handlePreview = useCallback((item: SearchResult) => {
     setPreviewResult(item);
@@ -351,6 +325,7 @@ export default function SearchScreen() {
 
   // No filtering, just show all results
   const filteredResults = results;
+  const showFullResults = !aiMode && !aiLoading && !aiAnswer;
   const pageCount = Math.max(1, Math.ceil(filteredResults.length / pageSize));
   const pagedResults = filteredResults.slice((page - 1) * pageSize, page * pageSize);
   const visiblePages = Array.from(
@@ -405,9 +380,9 @@ export default function SearchScreen() {
               />
             </YStack>
             <Button
-              backgroundColor="#5B7E6B"
+              backgroundColor={colors.primaryDeep}
               color="white"
-              borderRadius="$3"
+              borderRadius="$6"
               onPress={() => handleSearch()}
               disabled={!query.trim() || loading}
               icon={loading ? <Spinner size="small" color="white" /> : <Search size={16} color="white" />}
@@ -422,8 +397,8 @@ export default function SearchScreen() {
                 <Button
                   key={`${item.query}-${item.caption}`}
                   size="$2"
-                  backgroundColor="#2C2C2E"
-                  color="#F2F2F7"
+                  backgroundColor={colors.surface2}
+                  color={colors.text}
                   borderRadius="$3"
                   onPress={() => {
                     setQuery(item.query);
@@ -449,13 +424,13 @@ export default function SearchScreen() {
           justifyContent="space-between"
         >
           <XStack alignItems="center" gap="$2">
-            <BrainCircuit size={16} color="#5B7E6B" />
-            <SizableText size="$3" color="#9CA3AF" fontWeight="600">
+            <BrainCircuit size={16} color={colors.primary} />
+            <SizableText size="$3" color={colors.textMuted} fontWeight="700">
               {translate(displaySymbol, 'ai_research_mode')}
             </SizableText>
           </XStack>
           <XStack
-              backgroundColor={aiMode ? colors.primary : colors.surface3}
+            backgroundColor={aiMode ? colors.primaryDeep : colors.surface3}
             borderRadius="$10"
             width={44}
             height={26}
@@ -474,7 +449,7 @@ export default function SearchScreen() {
           </XStack>
         </XStack>
 
-        <Separator borderColor="#2C2C2E" />
+        <Separator borderColor={colors.border} />
 
         {/* ── Results Area ── */}
         <YStack flex={1}>
@@ -491,24 +466,24 @@ export default function SearchScreen() {
           {!loading && corsBlocked && (
             <YStack padding="$5" gap="$4" alignItems="center">
               <YStack
-                backgroundColor="#2C2C2E"
-                borderRadius="$4"
+                backgroundColor={colors.surface}
+                borderRadius="$6"
                 padding="$5"
                 borderWidth={1}
-                borderColor="#3A3A3C"
+                borderColor={colors.border}
                 alignItems="center"
                 gap="$3"
                 width="100%"
               >
-                <Globe size={36} color="#5B7E6B" />
-                <SizableText size="$5" color="#F2F2F7" fontWeight="700" textAlign="center">
+                <Globe size={36} color={colors.primary} />
+                <SizableText size="$5" color={colors.text} fontWeight="900" textAlign="center">
                   {translate(displaySymbol, 'results_on_jw')}
                 </SizableText>
-                <SizableText size="$3" color="#9CA3AF" textAlign="center" lineHeight={20}>
+                <SizableText size="$3" color={colors.textMuted} textAlign="center" lineHeight={20}>
                   {translate(displaySymbol, 'cors_search_hint')}
                 </SizableText>
                 <Button
-                  backgroundColor="#5B7E6B"
+                  backgroundColor={colors.primaryDeep}
                   color="white"
                   borderRadius="$3"
                   onPress={openJWOrg}
@@ -524,20 +499,20 @@ export default function SearchScreen() {
           {!loading && error && !corsBlocked && (
             <YStack padding="$5" gap="$4" alignItems="center">
               <YStack
-                backgroundColor="#2C2C2E"
-                borderRadius="$4"
+                backgroundColor={colors.surface}
+                borderRadius="$6"
                 padding="$5"
                 borderWidth={1}
-                borderColor="#3A3A3C"
+                borderColor={colors.border}
                 alignItems="center"
                 gap="$3"
                 width="100%"
               >
                 <AlertCircle size={36} color="#EF4444" />
-                <SizableText size="$5" color="#F2F2F7" fontWeight="700">
+                <SizableText size="$5" color={colors.text} fontWeight="700">
                   {translate(displaySymbol, 'search_failed')}
                 </SizableText>
-                <SizableText size="$3" color="#9CA3AF" textAlign="center" lineHeight={20}>
+                <SizableText size="$3" color={colors.textMuted} textAlign="center" lineHeight={20}>
                   {error === 'timeout'
                     ? translate(displaySymbol, 'request_timeout')
                     : translate(displaySymbol, 'search_error_hint')}
@@ -545,8 +520,8 @@ export default function SearchScreen() {
                 <XStack gap="$2">
                   <Button
                     size="$3"
-                    backgroundColor="#3A3A3C"
-                    color="#F2F2F7"
+                    backgroundColor={colors.surface2}
+                    color={colors.text}
                     borderRadius="$3"
                     onPress={() => handleSearch()}
                   >
@@ -554,7 +529,7 @@ export default function SearchScreen() {
                   </Button>
                   <Button
                     size="$3"
-                    backgroundColor="#5B7E6B"
+                    backgroundColor={colors.primaryDeep}
                     color="white"
                     borderRadius="$3"
                     onPress={openJWOrg}
@@ -571,25 +546,25 @@ export default function SearchScreen() {
           {!loading && !error && hasSearched && filteredResults.length === 0 && (
             <YStack padding="$5" gap="$4" alignItems="center">
               <YStack
-                backgroundColor="#2C2C2E"
-                borderRadius="$4"
+                backgroundColor={colors.surface}
+                borderRadius="$6"
                 padding="$5"
                 borderWidth={1}
-                borderColor="#3A3A3C"
+                borderColor={colors.border}
                 alignItems="center"
                 gap="$3"
                 width="100%"
               >
-                <Search size={36} color="#6B7280" />
-                <SizableText size="$5" color="#F2F2F7" fontWeight="700">
+                <Search size={36} color={colors.textMuted} />
+                <SizableText size="$5" color={colors.text} fontWeight="900">
                   {translate(displaySymbol, 'no_results_found')}
                 </SizableText>
-                <SizableText size="$3" color="#9CA3AF" textAlign="center" lineHeight={20}>
+                <SizableText size="$3" color={colors.textMuted} textAlign="center" lineHeight={20}>
                   {translate(displaySymbol, 'no_results_hint')}
                 </SizableText>
                 <Button
                   size="$3"
-                  backgroundColor="#5B7E6B"
+                  backgroundColor={colors.primaryDeep}
                   color="white"
                   borderRadius="$3"
                   onPress={openJWOrg}
@@ -604,11 +579,11 @@ export default function SearchScreen() {
           {/* Initial empty prompt */}
           {!loading && !hasSearched && (
             <YStack flex={1} justifyContent="center" alignItems="center" gap="$3" padding="$5">
-              <Globe size={52} color="#3A3A3C" />
-              <SizableText size="$5" color="#F2F2F7" fontWeight="700" textAlign="center">
+              <Globe size={52} color={colors.borderStrong} />
+              <SizableText size="$5" color={colors.text} fontWeight="900" textAlign="center">
                 {translate(displaySymbol, 'search_jw_sources')}
               </SizableText>
-              <SizableText size="$3" color="#9CA3AF" textAlign="center" maxWidth={280} lineHeight={20}>
+              <SizableText size="$3" color={colors.textMuted} textAlign="center" maxWidth={280} lineHeight={21}>
                 {translate(displaySymbol, 'search_jw_sources_hint')}
               </SizableText>
             </YStack>
@@ -618,96 +593,106 @@ export default function SearchScreen() {
           {(aiLoading || aiAnswer) && (
             <YStack paddingHorizontal="$5" paddingTop="$4">
               <Card
-                backgroundColor="#1A2E24"
-                borderRadius="$4"
+                backgroundColor={colors.surface}
+                borderRadius="$6"
                 padding="$4"
                 borderWidth={1}
-                borderColor="#2D5A40"
+                borderColor={colors.borderStrong}
                 gap="$3"
               >
                 <XStack alignItems="center" gap="$2">
-                  <Sparkles size={16} color="#5B7E6B" />
-                  <SizableText size="$3" color="#5B7E6B" fontWeight="700">
+                  <Sparkles size={16} color={colors.primary} />
+                  <SizableText size="$3" color={colors.primary} fontWeight="800">
                     {translate(displaySymbol, 'ai_research_synthesis')}
                   </SizableText>
                 </XStack>
-                <SizableText size="$2" color="#9CA3AF" fontStyle="italic">
+                <SizableText size="$2" color={colors.textMuted} fontStyle="italic">
                   {translate(displaySymbol, 'based_on_jw_sources')}
                 </SizableText>
                 {aiLoading ? (
                   <XStack gap="$2" alignItems="center">
-                    <Spinner size="small" color="#5B7E6B" />
-                    <SizableText size="$3" color="#9CA3AF">
+                    <Spinner size="small" color={colors.primary} />
+                    <SizableText size="$3" color={colors.textMuted}>
                       {translate(displaySymbol, 'synthesizing_answer')}
                     </SizableText>
                   </XStack>
                 ) : (
-                  <SizableText size="$3" color="#E5E7EB" lineHeight={20}>
+                  <SizableText size="$3" color={colors.textSoft} lineHeight={22}>
                     {aiAnswer}
                   </SizableText>
                 )}
                 {aiAnswer && !aiLoading && (
-                  <Button
-                    size="$2"
-                    backgroundColor="#2D5A40"
-                    color="#5B7E6B"
-                    borderRadius="$3"
-                    onPress={async () => {
-                      try {
-                        await saveSource({
-                          id: `search_ai_${Date.now()}`,
-                          type: 'answer',
-                          title: `AI answer: ${query}`,
-                          content: aiAnswer,
-                          language,
-                          savedAt: new Date().toISOString(),
-                          syncStatus: 'saved',
-                          metadata: { query, sourceCount: String(aiContext.length || results.length) },
-                        });
-                        toast(translate(displaySymbol, 'saved'), { message: translate(displaySymbol, 'save_answer'), variant: 'success' });
-                      } catch {}
-                    }}
-                    icon={<Bookmark size={12} color="#5B7E6B" />}
-                    alignSelf="flex-start"
-                  >
-                    {translate(displaySymbol, 'save_answer')}
-                  </Button>
+                  <YStack gap="$3">
+                    {aiSources.length > 0 ? (
+                      <YStack gap="$2">
+                        <SizableText size="$2" color={colors.primary} fontWeight="900" letterSpacing={1}>
+                          {translate(displaySymbol, 'based_on_jw_sources').toUpperCase()}
+                        </SizableText>
+                        {aiSources.slice(0, 8).map((source, index) => (
+                          <XStack key={`${source.id}-${source.url}`} gap="$2" alignItems="flex-start">
+                            <SizableText size="$2" color={colors.textMuted} fontWeight="900" width={24}>
+                              [{index + 1}]
+                            </SizableText>
+                            <YStack flex={1}>
+                              <SizableText size="$3" color={colors.text} fontWeight="800" numberOfLines={2}>{source.title}</SizableText>
+                              <SizableText size="$2" color={colors.textMuted}>{source.sourceTag}</SizableText>
+                            </YStack>
+                            <Button size="$2" chromeless color={colors.primary} onPress={() => handlePreview(source)}>
+                              {translate(displaySymbol, 'open')}
+                            </Button>
+                          </XStack>
+                        ))}
+                      </YStack>
+                    ) : null}
+                    <Button
+                      size="$2"
+                      backgroundColor={colors.glow}
+                      color={colors.primary}
+                      borderRadius="$3"
+                      onPress={async () => {
+                        try {
+                          await saveSource({
+                            id: `search_ai_${Date.now()}`,
+                            type: 'answer',
+                            title: `AI answer: ${query}`,
+                            content: aiAnswer,
+                            language,
+                            savedAt: new Date().toISOString(),
+                            syncStatus: 'saved',
+                            metadata: { query, sourceCount: String(aiSources.length || results.length) },
+                          });
+                          toast(translate(displaySymbol, 'saved'), { message: translate(displaySymbol, 'save_answer'), variant: 'success' });
+                        } catch {
+                          toast(translate(displaySymbol, 'delete_failed'), { message: translate(displaySymbol, 'check_connection_retry'), variant: 'error' });
+                        }
+                      }}
+                      icon={<Bookmark size={12} color={colors.primary} />}
+                      alignSelf="flex-start"
+                    >
+                      {translate(displaySymbol, 'save_answer')}
+                    </Button>
+                  </YStack>
                 )}
               </Card>
             </YStack>
           )}
 
           {/* Results list */}
-          {!loading && filteredResults.length > 0 && (
+          {!loading && showFullResults && filteredResults.length > 0 && (
             <FlatList
               data={pagedResults}
               keyExtractor={(item) => item.id + item.url}
               contentContainerStyle={{ padding: 20, gap: 12, paddingTop: 16 }}
               ItemSeparatorComponent={() => <YStack height={12} />}
               renderItem={({ item }) => (
-                <ResultCard item={item} onSave={handleSave} onUseForAI={handleUseForAI} onPreview={handlePreview} displaySymbol={displaySymbol} />
+                <ResultCard item={item} onSave={handleSave} onPreview={handlePreview} displaySymbol={displaySymbol} />
               )}
               showsVerticalScrollIndicator={false}
               ListHeaderComponent={
                 <XStack alignItems="center" justifyContent="space-between" paddingBottom="$2">
-                  <SizableText size="$3" color="#9CA3AF">
+                  <SizableText size="$3" color={colors.textMuted}>
                     {filteredResults.length} {filteredResults.length === 1 ? translate(displaySymbol, 'result') : translate(displaySymbol, 'results')}
                   </SizableText>
-                  {aiContext.length > 0 && (
-                    <XStack
-                      backgroundColor="#1A2E24"
-                      paddingHorizontal="$2"
-                      paddingVertical="$1"
-                      borderRadius="$2"
-                      alignItems="center"
-                      gap="$1"
-                    >
-                      <BrainCircuit size={12} color="#5B7E6B" />
-                      <SizableText size="$1" color="#5B7E6B">
-                        {aiContext.length} {translate(displaySymbol, 'in_ai_context')}
-                      </SizableText>
-                    </XStack>
-                  )}
                 </XStack>
               }
               ListFooterComponent={
@@ -721,7 +706,7 @@ export default function SearchScreen() {
                       return (
                         <XStack key={p} alignItems="center" gap="$2">
                           {previous && p - previous > 1 ? (
-                            <SizableText size="$2" color="#9CA3AF">…</SizableText>
+                            <SizableText size="$2" color={colors.textMuted}>…</SizableText>
                           ) : null}
                           <Button
                             size="$2"
@@ -744,40 +729,32 @@ export default function SearchScreen() {
           )}
         </YStack>
       </YStack>
-      <Sheet open={Boolean(previewResult)} onOpenChange={(open: boolean) => { if (!open) setPreviewResult(null); }} snapPoints={[80]} modal={false} dismissOnSnapToBottom>
-        <Sheet.Frame backgroundColor={colors.bg} borderTopLeftRadius="$6" borderTopRightRadius="$6">
-          <Sheet.Handle backgroundColor={colors.borderStrong} />
-          <ScrollView flex={1}>
-            <YStack padding="$5" gap="$4">
-              <XStack justifyContent="space-between" alignItems="center" gap="$3">
-                <SizableText size="$5" color={colors.text} fontWeight="800" flex={1}>
-                  {preview?.title || previewResult?.title}
-                </SizableText>
-                {previewResult ? (
-                  <Button size="$2" onPress={() => handleSave(previewResult)} icon={<Bookmark size={12} color="#9CA3AF" />}>
-                    {translate(displaySymbol, 'save')}
-                  </Button>
-                ) : null}
-              </XStack>
-              {previewLoading ? (
-                <XStack gap="$2" alignItems="center">
-                  <Spinner size="small" color="#5B7E6B" />
-                  <SizableText color={colors.textMuted}>{translate(displaySymbol, 'loading_preview')}</SizableText>
-                </XStack>
-              ) : (
-                <SizableText size="$4" color={colors.text} lineHeight={26}>
-                  {preview?.content || previewResult?.snippet || translate(displaySymbol, 'preview_unavailable')}
-                </SizableText>
-              )}
-              {previewResult?.url ? (
-                <Button size="$3" backgroundColor={colors.surface2} color={colors.text} onPress={() => Linking.openURL(previewResult.url).catch(() => {})}>
-                  {translate(displaySymbol, 'open_source')}
-                </Button>
-              ) : null}
-            </YStack>
-          </ScrollView>
-        </Sheet.Frame>
-      </Sheet>
+      <PreviewModal
+        open={Boolean(previewResult)}
+        onClose={() => setPreviewResult(null)}
+        label={previewResult?.sourceTag}
+        title={preview?.title || previewResult?.title}
+        loading={previewLoading}
+      >
+        <YStack gap="$4">
+          <SizableText size="$4" color={colors.text} lineHeight={28}>
+            {preview?.content || previewResult?.snippet || translate(displaySymbol, 'preview_unavailable')}
+          </SizableText>
+          <XStack gap="$2" flexWrap="wrap">
+            {previewResult ? (
+              <Button size="$3" backgroundColor={colors.glow} color={colors.primary} onPress={() => handleSave(previewResult)} icon={<Bookmark size={12} color={colors.primary} />}>
+                {translate(displaySymbol, 'save')}
+              </Button>
+            ) : null}
+            {previewResult?.url ? (
+              <Button size="$3" backgroundColor={colors.surface2} color={colors.text} onPress={() => Linking.openURL(previewResult.url).catch(() => {})}>
+                {translate(displaySymbol, 'open_source')}
+              </Button>
+            ) : null}
+          </XStack>
+        </YStack>
+      </PreviewModal>
     </SafeAreaView>
   );
 }
+

@@ -1,5 +1,4 @@
 import type { Language } from '@/types';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   fetchLocalizationStrings,
   fetchSearchSuggestions,
@@ -8,8 +7,10 @@ import {
   normalizeLanguage,
   refsFromHtml,
   resolveReference,
+  resolveUniversalReference,
   stripHtml,
   tokenizeWolHtml,
+  type UniversalReferenceResolution,
   type WolPreview,
   type WolReference,
   type WolReferenceToken,
@@ -17,6 +18,11 @@ import {
 import { getMediaLinks, getVideoSource, proxiedMediaUrl, searchJWOrg, searchWOL } from '@/services/jwApiService';
 import { DISPLAY_LANGUAGES } from '@/services/i18nService';
 import { getLanguageByCode, getLanguageBySymbol } from '@/services/languageService';
+import {
+  getSourceCache,
+  setSourceCache,
+  sourceCacheKey as makeSourceCacheKey,
+} from '@/services/sourceCacheService';
 
 export type SourceProvider = 'gateway' | 'wol-mcp-compatible' | 'jw-mcp-compatible' | 'jw-org-mcp-compatible' | 'direct-fallback';
 
@@ -56,6 +62,21 @@ export interface GatewaySearchResult {
   sourceTag: string;
   sourceColor: string;
   provider: SourceProvider;
+}
+
+export interface ResolvedMeetingVideo {
+  kind: 'video';
+  title: string;
+  url: string | null;
+  poster?: string | null;
+  subtitlesUrl?: string | null;
+  captionsText: string;
+  sourceUrl?: string;
+  pub: string;
+  issue?: string;
+  track: number;
+  langCode: string;
+  label?: string;
 }
 
 const SOURCE_COLORS: Record<string, string> = {
@@ -99,6 +120,23 @@ export async function gatewayResolveReference(
     provider: 'wol-mcp-compatible',
     data,
     sourceUrl: typeof ref === 'string' ? undefined : ref.href,
+  };
+}
+
+export async function gatewayResolveUniversalReference(
+  ref: WolReference | string,
+  language?: Partial<Language> | null,
+): Promise<SourceGatewayResult<UniversalReferenceResolution>> {
+  const lang = normalizeAppLanguage(language);
+  const cacheKey = sourceCacheKey(lang, 'universal-reference', typeof ref === 'string' ? ref : ref.href || ref.text);
+  const cached = await getCachedJson<UniversalReferenceResolution>(cacheKey);
+  if (cached) return { provider: 'gateway', data: cached, sourceUrl: cached.sourceUrl };
+  const data = await resolveUniversalReference(ref, lang);
+  await setCachedJson(cacheKey, data);
+  return {
+    provider: 'wol-mcp-compatible',
+    data,
+    sourceUrl: typeof ref === 'string' ? data.sourceUrl : ref.href,
   };
 }
 
@@ -154,11 +192,85 @@ export async function gatewayGetVideoSource(
   };
 }
 
+export async function gatewayResolveMeetingVideo(
+  video: { title?: string; pub: string; issue?: string; track: string | number; langwritten?: string },
+  language?: Partial<Language> | null,
+): Promise<SourceGatewayResult<ResolvedMeetingVideo>> {
+  const lang = normalizeAppLanguage(language);
+  const track = Number(video.track || 1);
+  const langCode = lang.code || video.langwritten || 'E';
+  const cacheKey = sourceCacheKey(lang, 'media-video', `${video.pub}:${video.issue ?? ''}:${track}:${langCode}`);
+  const cached = await getCachedJson<ResolvedMeetingVideo>(cacheKey);
+  if (cached) return { provider: 'gateway', data: cached, sourceUrl: cached.sourceUrl };
+
+  const raw: any = await getVideoSource(video.pub, track, langCode, video.issue);
+  const files = getVideoFiles(raw, langCode);
+  const best = pickBestVideoFile(files);
+  const sourceUrl = best?.file?.url ?? null;
+  const rawSubtitles = best?.subtitles?.url ?? best?.subtitles?.[0]?.url ?? null;
+  let captionsText = '';
+
+  if (rawSubtitles) {
+    try {
+      const requestUrl = proxiedMediaUrl(rawSubtitles) ?? rawSubtitles;
+      const response = await fetch(requestUrl, {
+        headers: { Accept: 'text/vtt,text/plain,*/*' },
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (response.ok) captionsText = stripVttCaptions(await response.text());
+    } catch {
+      captionsText = '';
+    }
+  }
+
+  const data: ResolvedMeetingVideo = {
+    kind: 'video',
+    title: best?.title || video.title || 'Video',
+    url: proxiedMediaUrl(sourceUrl) ?? sourceUrl,
+    poster: proxiedMediaUrl(best?.trackImage?.url) ?? best?.trackImage?.url ?? null,
+    subtitlesUrl: proxiedMediaUrl(rawSubtitles) ?? rawSubtitles,
+    captionsText,
+    sourceUrl: sourceUrl ?? undefined,
+    pub: video.pub,
+    issue: video.issue,
+    track,
+    langCode,
+    label: best?.label,
+  };
+  await setCachedJson(cacheKey, data);
+  return { provider: 'jw-mcp-compatible', data, sourceUrl: sourceUrl ?? undefined };
+}
+
 function pickBestVideoFile(files: any[] = []) {
   if (!Array.isArray(files) || !files.length) return null;
   return files.find((file) => /480p/i.test(file?.label ?? ''))
     ?? files.find((file) => /360p/i.test(file?.label ?? ''))
     ?? files[0];
+}
+
+function getVideoFiles(raw: any, langCode: string): any[] {
+  const direct = raw?.files?.[langCode]?.MP4 ?? raw?.files?.[langCode]?.M4V;
+  if (Array.isArray(direct) && direct.length) return direct;
+  const buckets = raw?.files ? Object.values(raw.files) as any[] : [];
+  return buckets.flatMap((bucket) => [
+    ...(Array.isArray(bucket?.MP4) ? bucket.MP4 : []),
+    ...(Array.isArray(bucket?.M4V) ? bucket.M4V : []),
+  ]);
+}
+
+export function stripVttCaptions(vtt: string): string {
+  const seen = new Set<string>();
+  return vtt
+    .replace(/^\uFEFF?WEBVTT[\s\S]*?(?:\r?\n){2}/i, '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line
+      && !/^\d+$/.test(line)
+      && !/-->/.test(line)
+      && !/^(WEBVTT|NOTE|STYLE|REGION)\b/i.test(line))
+    .map((line) => line.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim())
+    .filter((line) => Boolean(line) && !seen.has(line) && Boolean(seen.add(line)))
+    .join(' ');
 }
 
 export async function gatewaySearchSuggestions(query: string, language: Language) {
@@ -436,22 +548,13 @@ function parseJsonSearchResults(data: unknown, prefix: string, provider: SourceP
 }
 
 function sourceCacheKey(language: Language, type: string, id: string): string {
-  return `source:${language.code}:${language.symbol}:${type}:${encodeURIComponent(id).slice(0, 180)}`;
+  return makeSourceCacheKey(language, type, id);
 }
 
 async function getCachedJson<T>(key: string): Promise<T | null> {
-  try {
-    const raw = await AsyncStorage.getItem(key);
-    return raw ? JSON.parse(raw) as T : null;
-  } catch {
-    return null;
-  }
+  return getSourceCache<T>(key);
 }
 
 async function setCachedJson(key: string, value: unknown): Promise<void> {
-  try {
-    await AsyncStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // Cache is a best-effort speed/offline layer.
-  }
+  await setSourceCache(key, value);
 }

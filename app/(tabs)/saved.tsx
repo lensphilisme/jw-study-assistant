@@ -34,6 +34,7 @@ import { loadSavedSources, deleteSource } from '@/services/storageService';
 import { createTranslator } from '@/services/i18nService';
 import type { SavedSource, SavedSourceType, SyncStatus } from '@/types';
 import { usePremiumTheme } from '@/hooks/usePremiumTheme';
+import { AppHeader, AppScreen, EmptyState as PremiumEmptyState, PremiumCard } from '@/components/premium';
 
 // ── Filter configuration ─────────────────────────────────────
 const FILTER_TYPES: { key: 'all' | SavedSourceType; labelKey: string }[] = [
@@ -47,32 +48,32 @@ const FILTER_TYPES: { key: 'all' | SavedSourceType; labelKey: string }[] = [
 ];
 
 // ── Helpers ───────────────────────────────────────────────────
-function getTypeIcon(type: SavedSourceType) {
+function getTypeIcon(type: SavedSourceType, colors: ReturnType<typeof usePremiumTheme>) {
   switch (type) {
-    case 'daily-text':   return <BookOpen size={18} color="#5B7E6B" />;
-    case 'answer':       return <AlignLeft size={18} color="#7B6B9E" />;
-    case 'note':         return <FileText size={18} color="#9E7B5A" />;
-    case 'article':      return <Newspaper size={18} color="#5A7B9E" />;
-    case 'meeting-part': return <BookMarked size={18} color="#5B7E6B" />;
-    case 'watchtower':   return <BookOpen size={18} color="#7B6B9E" />;
-    default:             return <Bookmark size={18} color="#9CA3AF" />;
+    case 'daily-text':   return <BookOpen size={18} color={colors.primary} />;
+    case 'answer':       return <AlignLeft size={18} color={colors.accent} />;
+    case 'note':         return <FileText size={18} color={colors.gold} />;
+    case 'article':      return <Newspaper size={18} color={colors.accent} />;
+    case 'meeting-part': return <BookMarked size={18} color={colors.primary} />;
+    case 'watchtower':   return <BookOpen size={18} color={colors.accent} />;
+    default:             return <Bookmark size={18} color={colors.textMuted} />;
   }
 }
 
-function getSyncBadge(status: SyncStatus, t: ReturnType<typeof createTranslator>) {
+function getSyncBadge(status: SyncStatus, t: ReturnType<typeof createTranslator>, colors: ReturnType<typeof usePremiumTheme>) {
   switch (status) {
     case 'saved':
       return (
         <XStack
-          backgroundColor="rgba(91,126,107,0.15)"
+          backgroundColor={colors.glow}
           borderRadius="$10"
           paddingHorizontal="$2"
           paddingVertical="$1"
           gap="$1"
           alignItems="center"
         >
-          <CheckCircle size={10} color="#5B7E6B" />
-          <SizableText size="$1" color="#5B7E6B" fontWeight="600">{t('saved')}</SizableText>
+          <CheckCircle size={10} color={colors.primary} />
+          <SizableText size="$1" color={colors.primary} fontWeight="700">{t('saved')}</SizableText>
         </XStack>
       );
     case 'updated':
@@ -85,8 +86,8 @@ function getSyncBadge(status: SyncStatus, t: ReturnType<typeof createTranslator>
           gap="$1"
           alignItems="center"
         >
-          <Clock size={10} color="#5A7B9E" />
-          <SizableText size="$1" color="#5A7B9E" fontWeight="600">{t('updated')}</SizableText>
+          <Clock size={10} color={colors.accent} />
+          <SizableText size="$1" color={colors.accent} fontWeight="600">{t('updated')}</SizableText>
         </XStack>
       );
     case 'needs-refresh':
@@ -99,8 +100,8 @@ function getSyncBadge(status: SyncStatus, t: ReturnType<typeof createTranslator>
           gap="$1"
           alignItems="center"
         >
-          <AlertCircle size={10} color="#F59E0B" />
-          <SizableText size="$1" color="#F59E0B" fontWeight="600">{t('needs_refresh')}</SizableText>
+          <AlertCircle size={10} color={colors.warning} />
+          <SizableText size="$1" color={colors.warning} fontWeight="600">{t('needs_refresh')}</SizableText>
         </XStack>
       );
   }
@@ -122,6 +123,7 @@ interface SavedItemCardProps {
 }
 
 function SavedItemCard({ item, onDelete, t }: SavedItemCardProps) {
+  const colors = usePremiumTheme();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const preview = item.content?.slice(0, 80) + (item.content?.length > 80 ? '…' : '');
 
@@ -136,43 +138,36 @@ function SavedItemCard({ item, onDelete, t }: SavedItemCardProps) {
   };
 
   return (
-    <Card
-      backgroundColor="#2C2C2E"
-      borderRadius="$4"
-      padding="$4"
-      borderWidth={1}
-      borderColor="#3A3A3C"
-      gap="$3"
-    >
+    <PremiumCard>
       {/* Top row: icon + title + badge */}
       <XStack gap="$3" alignItems="flex-start">
         <YStack
           width={36}
           height={36}
           borderRadius={18}
-          backgroundColor="#1C1C1E"
+          backgroundColor={colors.glowBlue}
           justifyContent="center"
           alignItems="center"
           borderWidth={1}
-          borderColor="#3A3A3C"
+          borderColor={colors.border}
           flexShrink={0}
         >
-          {getTypeIcon(item.type)}
+          {getTypeIcon(item.type, colors)}
         </YStack>
         <YStack flex={1} gap="$1">
-          <SizableText size="$4" color="#F2F2F7" fontWeight="700" numberOfLines={2}>
+          <SizableText size="$4" color={colors.text} fontWeight="900" letterSpacing={-0.2} numberOfLines={2}>
             {item.title}
           </SizableText>
           <XStack gap="$2" alignItems="center" flexWrap="wrap">
-            <SizableText size="$2" color="#6B7280">{formatDate(item.savedAt)}</SizableText>
-            {getSyncBadge(item.syncStatus, t)}
+            <SizableText size="$2" color={colors.textMuted}>{formatDate(item.savedAt)}</SizableText>
+            {getSyncBadge(item.syncStatus, t, colors)}
           </XStack>
         </YStack>
       </XStack>
 
       {/* Preview text */}
       {preview ? (
-        <SizableText size="$3" color="#9CA3AF" numberOfLines={2} lineHeight={20}>
+        <SizableText size="$3" color={colors.textMuted} numberOfLines={2} lineHeight={21}>
           {preview}
         </SizableText>
       ) : null}
@@ -181,12 +176,12 @@ function SavedItemCard({ item, onDelete, t }: SavedItemCardProps) {
       <XStack gap="$2" justifyContent="flex-end">
         <Button
           size="$2"
-          backgroundColor="rgba(91,126,107,0.15)"
-          borderColor="rgba(91,126,107,0.3)"
+          backgroundColor={colors.glow}
+          borderColor={colors.borderStrong}
           borderWidth={1}
-          color="#5B7E6B"
+          color={colors.primary}
           onPress={handleOpen}
-          icon={<ExternalLink size={13} color="#5B7E6B" />}
+          icon={<ExternalLink size={13} color={colors.primary} />}
         >
           {t('open')}
         </Button>
@@ -199,8 +194,8 @@ function SavedItemCard({ item, onDelete, t }: SavedItemCardProps) {
               backgroundColor="rgba(239,68,68,0.1)"
               borderColor="rgba(239,68,68,0.25)"
               borderWidth={1}
-              color="#EF4444"
-              icon={<Trash2 size={13} color="#EF4444" />}
+              color={colors.danger}
+              icon={<Trash2 size={13} color={colors.danger} />}
             >
               {t('delete')}
             </Button>
@@ -213,31 +208,32 @@ function SavedItemCard({ item, onDelete, t }: SavedItemCardProps) {
           onOpenChange={setConfirmOpen}
         />
       </XStack>
-    </Card>
+    </PremiumCard>
   );
 }
 
 // ── Empty state ───────────────────────────────────────────────
 function EmptyState({ t }: { t: ReturnType<typeof createTranslator> }) {
+  const colors = usePremiumTheme();
   return (
     <YStack alignItems="center" paddingTop="$12" gap="$4">
       <YStack
         width={80}
         height={80}
         borderRadius={40}
-        backgroundColor="#2C2C2E"
+        backgroundColor={colors.surface}
         justifyContent="center"
         alignItems="center"
         borderWidth={1}
-        borderColor="#3A3A3C"
+        borderColor={colors.border}
       >
-        <Bookmark size={36} color="#4B5563" />
+        <Bookmark size={36} color={colors.textMuted} />
       </YStack>
       <YStack alignItems="center" gap="$2">
-        <SizableText size="$5" color="#F2F2F7" fontWeight="700" textAlign="center">
+        <SizableText size="$5" color={colors.text} fontWeight="900" textAlign="center">
           {t('nothing_saved_yet')}
         </SizableText>
-        <SizableText size="$3" color="#9CA3AF" textAlign="center" maxWidth={280} lineHeight={20}>
+        <SizableText size="$3" color={colors.textMuted} textAlign="center" maxWidth={280} lineHeight={21}>
           {t('saved_empty_hint')}
         </SizableText>
       </YStack>
