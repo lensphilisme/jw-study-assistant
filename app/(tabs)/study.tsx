@@ -1,11 +1,10 @@
 import { useState, useCallback } from 'react';
 import { FlatList, TouchableOpacity, Alert, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   YStack,
   XStack,
   SizableText,
-  H2,
   Card,
   Button,
   Input,
@@ -21,13 +20,13 @@ import {
   X,
   BlinkSelect,
   ScrollView,
+  Sparkles,
 } from '@blinkdotnew/mobile-ui';
 import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { generateAiText } from '@/services/localAiService';
 import { usePremiumTheme } from '@/hooks/usePremiumTheme';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+import { AppScreen, PageHeader, PremiumCard, GradientButton, EmptyState } from '@/components/premium';
 
 export interface StudyWeek {
   weekNumber: number;
@@ -48,16 +47,14 @@ export interface StudyPlan {
   aiGenerated: boolean;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function generateId() {
   return `plan_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 const TYPE_OPTIONS = [
-  { label: 'Weekly (4 weeks)',   value: 'weekly' },
+  { label: 'Weekly (4 weeks)', value: 'weekly' },
   { label: 'Monthly (12 weeks)', value: 'monthly' },
-  { label: 'Annual (52 weeks)',  value: 'annual' },
+  { label: 'Annual (52 weeks)', value: 'annual' },
 ];
 
 const TYPE_WEEKS: Record<StudyPlan['type'], number> = {
@@ -66,28 +63,23 @@ const TYPE_WEEKS: Record<StudyPlan['type'], number> = {
   annual: 52,
 };
 
-const TYPE_CONFIG: Record<
-  StudyPlan['type'],
-  { label: string; color: string; bg: string }
-> = {
-  weekly:  { label: 'Weekly',  color: '#3B82F6', bg: 'rgba(59,130,246,0.15)' },
+const TYPE_CONFIG: Record<StudyPlan['type'], { label: string; color: string; bg: string }> = {
+  weekly: { label: 'Weekly', color: '#3B82F6', bg: 'rgba(59,130,246,0.15)' },
   monthly: { label: 'Monthly', color: '#F59E0B', bg: 'rgba(245,158,11,0.15)' },
-  annual:  { label: 'Annual',  color: '#5B7E6B', bg: 'rgba(91,126,107,0.15)' },
+  annual: { label: 'Annual', color: '#5B7E6B', bg: 'rgba(91,126,107,0.15)' },
 };
-
-// ─── Plan Card ────────────────────────────────────────────────────────────────
 
 function PlanCard({ plan, onPress }: { plan: StudyPlan; onPress: () => void }) {
   const colors = usePremiumTheme();
   const cfg = TYPE_CONFIG[plan.type];
-  const completed = plan.weeks.filter(w => w.completed).length;
+  const completed = plan.weeks.filter((w) => w.completed).length;
   const total = plan.weeks.length;
   const progress = total > 0 ? completed / total : 0;
-  const currentWeek = plan.weeks.find(w => !w.completed);
+  const currentWeek = plan.weeks.find((w) => !w.completed);
 
   return (
     <TouchableOpacity activeOpacity={0.85} onPress={onPress}>
-      <Card
+      <YStack
         backgroundColor={colors.surface}
         borderRadius="$7"
         borderWidth={1}
@@ -103,73 +95,40 @@ function PlanCard({ plan, onPress }: { plan: StudyPlan; onPress: () => void }) {
                 {plan.title}
               </SizableText>
               {plan.aiGenerated && (
-                <YStack
-                  backgroundColor="rgba(91,126,107,0.15)"
-                  paddingHorizontal="$2"
-                  paddingVertical={2}
-                  borderRadius="$10"
-                >
-                  <SizableText size="$1" color="#5B7E6B" fontWeight="700">
-                    AI
-                  </SizableText>
+                <YStack backgroundColor={colors.glow} paddingHorizontal="$2" paddingVertical={2} borderRadius="$10">
+                  <SizableText size="$1" color={colors.primary} fontWeight="700">AI</SizableText>
                 </YStack>
               )}
             </XStack>
-
-            {/* Type badge */}
-            <YStack
-              backgroundColor={cfg.bg}
-              paddingHorizontal="$2"
-              paddingVertical={2}
-              borderRadius="$10"
-              alignSelf="flex-start"
-            >
+            <YStack backgroundColor={cfg.bg} paddingHorizontal="$2" paddingVertical={2} borderRadius="$10" alignSelf="flex-start">
               <SizableText size="$1" color={cfg.color} fontWeight="700">
-                {cfg.label.toUpperCase()} · {total} WEEKS
+                {cfg.label.toUpperCase()} - {total} WEEKS
               </SizableText>
             </YStack>
           </YStack>
           <ChevronRight size={18} color={colors.textMuted} />
         </XStack>
 
-        {/* Progress bar */}
         <YStack gap="$2">
           <XStack justifyContent="space-between">
-            <SizableText size="$2" color={colors.textMuted}>
-              Progress
-            </SizableText>
-            <SizableText size="$2" color={colors.text} fontWeight="700">
-              {completed}/{total} weeks
-            </SizableText>
+            <SizableText size="$2" color={colors.textMuted}>Progress</SizableText>
+            <SizableText size="$2" color={colors.text} fontWeight="700">{completed}/{total} weeks</SizableText>
           </XStack>
-          <Progress
-            value={Math.round(progress * 100)}
-            backgroundColor={colors.surface2}
-            height={6}
-            borderRadius="$10"
-          >
-            <Progress.Indicator
-              backgroundColor={cfg.color}
-              borderRadius="$10"
-              animation="bouncy"
-            />
+          <Progress value={Math.round(progress * 100)} backgroundColor={colors.surface2} height={6} borderRadius="$10">
+            <Progress.Indicator backgroundColor={cfg.color} borderRadius="$10" animation="bouncy" />
           </Progress>
         </YStack>
 
-        {/* Current week topic */}
         {currentWeek && (
           <>
             <Separator borderColor={colors.border} />
             <XStack gap="$2" alignItems="center">
               <SizableText size="$2" color={colors.textMuted}>Week {currentWeek.weekNumber}:</SizableText>
-              <SizableText size="$3" color={colors.textSoft} flex={1} numberOfLines={1}>
-                {currentWeek.topic}
-              </SizableText>
+              <SizableText size="$3" color={colors.textSoft} flex={1} numberOfLines={1}>{currentWeek.topic}</SizableText>
             </XStack>
           </>
         )}
 
-        {/* Continue button */}
         <Button
           backgroundColor={cfg.bg}
           color={cfg.color}
@@ -180,14 +139,12 @@ function PlanCard({ plan, onPress }: { plan: StudyPlan; onPress: () => void }) {
           onPress={onPress}
           pressStyle={{ opacity: 0.75 }}
         >
-          Continue →
+          Continue
         </Button>
-      </Card>
+      </YStack>
     </TouchableOpacity>
   );
 }
-
-// ─── Create Plan Sheet ────────────────────────────────────────────────────────
 
 function CreatePlanSheet({
   open,
@@ -198,6 +155,7 @@ function CreatePlanSheet({
   onClose: () => void;
   onCreated: (plan: StudyPlan) => void;
 }) {
+  const colors = usePremiumTheme();
   const [title, setTitle] = useState('');
   const [planType, setPlanType] = useState<StudyPlan['type']>('weekly');
   const [topicsText, setTopicsText] = useState('');
@@ -221,11 +179,9 @@ function CreatePlanSheet({
     setCreating(true);
     try {
       const totalWeeks = TYPE_WEEKS[planType];
-
       let weekTopics: string[] = [];
 
       if (useAI) {
-        // Load user profile for context
         const profileRaw = await AsyncStorage.getItem('user_profile');
         const profile = profileRaw ? JSON.parse(profileRaw) : {};
         const lang = await AsyncStorage.getItem('selected_language');
@@ -246,15 +202,9 @@ function CreatePlanSheet({
         } catch {}
       }
 
-      // Fall back to manual topics or placeholders
       if (weekTopics.length < totalWeeks) {
-        const manualTopics = topicsText
-          .split('\n')
-          .map(t => t.trim())
-          .filter(Boolean);
-        weekTopics = Array.from({ length: totalWeeks }, (_, i) =>
-          manualTopics[i] ?? `Week ${i + 1} Study`
-        );
+        const manualTopics = topicsText.split('\n').map((t) => t.trim()).filter(Boolean);
+        weekTopics = Array.from({ length: totalWeeks }, (_, i) => manualTopics[i] ?? `Week ${i + 1} Study`);
       }
 
       const weeks: StudyWeek[] = weekTopics.slice(0, totalWeeks).map((topic, i) => ({
@@ -297,78 +247,66 @@ function CreatePlanSheet({
       snapPoints={[85]}
       dismissOnSnapToBottom
     >
-      <Sheet.Overlay animation="lazy" enterStyle={{ opacity: 0 }} exitStyle={{ opacity: 0 }} />
-      <Sheet.Frame backgroundColor="#1C1C1E" borderTopLeftRadius="$5" borderTopRightRadius="$5">
-        <Sheet.Handle backgroundColor="#3A3A3C" />
+      <Sheet.Overlay animation="lazy" enterStyle={{ opacity: 0 }} exitStyle={{ opacity: 0 }} backgroundColor={colors.mode === 'dark' ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.2)'} />
+      <Sheet.Frame backgroundColor={colors.surface} borderTopLeftRadius="$7" borderTopRightRadius="$7">
+        <Sheet.Handle backgroundColor={colors.borderStrong} />
         <ScrollView flex={1} showsVerticalScrollIndicator={false}>
           <YStack padding="$5" gap="$5" paddingBottom={60}>
-            {/* Sheet header */}
             <XStack justifyContent="space-between" alignItems="center">
-              <SizableText size="$6" color="#F2F2F7" fontWeight="700">
-                New Study Plan
-              </SizableText>
+              <SizableText size="$6" color={colors.text} fontWeight="900">New Study Plan</SizableText>
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={() => { reset(); onClose(); }}
                 style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 16,
-                  backgroundColor: '#2C2C2E',
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: colors.surface2,
                   justifyContent: 'center',
                   alignItems: 'center',
                 }}
               >
-                <X size={16} color="#9CA3AF" />
+                <X size={18} color={colors.textMuted} />
               </TouchableOpacity>
             </XStack>
 
-            {/* Title */}
             <YStack gap="$2">
-              <SizableText size="$3" color="#9CA3AF" fontWeight="600">
-                Plan Title *
-              </SizableText>
+              <SizableText size="$3" color={colors.textMuted} fontWeight="700">Plan Title *</SizableText>
               <Input
                 value={title}
                 onChangeText={setTitle}
-                placeholder="e.g. Strengthening My Faith…"
-                placeholderTextColor="#4B5563"
-                backgroundColor="#2C2C2E"
-                borderColor="#3A3A3C"
-                color="#F2F2F7"
+                placeholder="e.g. Strengthening My Faith..."
+                placeholderTextColor={colors.textMuted}
+                backgroundColor={colors.surface2}
+                borderColor={colors.border}
+                color={colors.text}
                 size="$4"
-                borderRadius="$3"
+                borderRadius="$4"
               />
             </YStack>
 
-            {/* Plan type */}
             <YStack gap="$2">
-              <SizableText size="$3" color="#9CA3AF" fontWeight="600">
-                Plan Type
-              </SizableText>
+              <SizableText size="$3" color={colors.textMuted} fontWeight="700">Plan Type</SizableText>
               <BlinkSelect
                 items={TYPE_OPTIONS}
                 value={planType}
                 onValueChange={(v) => setPlanType(v as StudyPlan['type'])}
-                placeholder="Select type…"
+                placeholder="Select type..."
               />
             </YStack>
 
-            {/* Topics */}
             <YStack gap="$2">
-              <SizableText size="$3" color="#9CA3AF" fontWeight="600">
-                Topics (one per line)
-              </SizableText>
+              <SizableText size="$3" color={colors.textMuted} fontWeight="700">Topics (one per line)</SizableText>
               <Input
                 value={topicsText}
                 onChangeText={setTopicsText}
-                placeholder={"God's Kingdom\nResurrection hope\nThe Bible's reliability…"}
-                placeholderTextColor="#4B5563"
-                backgroundColor="#2C2C2E"
-                borderColor="#3A3A3C"
-                color="#F2F2F7"
+                placeholder={"God's Kingdom\nResurrection hope\nThe Bible's reliability..."}
+                placeholderTextColor={colors.textMuted}
+                backgroundColor={colors.surface2}
+                borderColor={colors.border}
+                color={colors.text}
                 size="$4"
-                borderRadius="$3"
+                borderRadius="$4"
                 multiline
                 numberOfLines={5}
                 textAlignVertical="top"
@@ -377,91 +315,30 @@ function CreatePlanSheet({
               />
             </YStack>
 
-            {/* AI toggle */}
-            <Card
-              backgroundColor="#2C2C2E"
-              borderRadius="$4"
-              padding="$4"
-              borderWidth={1}
-              borderColor={useAI ? 'rgba(91,126,107,0.4)' : '#3A3A3C'}
-            >
+            <Card backgroundColor={colors.glow} borderRadius="$5" padding="$4" borderWidth={1} borderColor={useAI ? colors.primary : colors.border}>
               <XStack alignItems="center" gap="$3">
-                <Brain size={20} color="#5B7E6B" />
+                <Brain size={22} color={colors.primary} />
                 <YStack flex={1} gap="$1">
-                  <SizableText size="$4" color="#F2F2F7" fontWeight="600">
-                    AI Suggest Topics
-                  </SizableText>
-                  <SizableText size="$2" color="#9CA3AF">
-                    Let AI create personalized topics based on your profile
-                  </SizableText>
+                  <SizableText size="$4" color={colors.text} fontWeight="700">AI Suggest Topics</SizableText>
+                  <SizableText size="$2" color={colors.textMuted}>Let AI create personalized topics based on your profile</SizableText>
                 </YStack>
                 <Switch
                   checked={useAI}
                   onCheckedChange={setUseAI}
-                  backgroundColor={useAI ? '#5B7E6B' : '#3A3A3C'}
+                  backgroundColor={useAI ? colors.primary : colors.surface3}
                 />
               </XStack>
             </Card>
 
-            <Button
-              backgroundColor="#5B7E6B"
-              color="#FFFFFF"
-              borderRadius="$4"
-              size="$5"
-              onPress={handleCreate}
-              disabled={creating}
-              pressStyle={{ opacity: 0.8 }}
-              icon={creating ? <Spinner size="small" color="#FFFFFF" /> : undefined}
-            >
-              {creating ? (useAI ? 'Generating Plan…' : 'Creating…') : 'Create Plan'}
-            </Button>
+            <GradientButton onPress={handleCreate} disabled={creating} icon={creating ? <Spinner size="small" color="white" /> : <Sparkles size={16} color="white" />}>
+              {creating ? (useAI ? 'Generating Plan...' : 'Creating...') : 'Create Plan'}
+            </GradientButton>
           </YStack>
         </ScrollView>
       </Sheet.Frame>
     </Sheet>
   );
 }
-
-// ─── Empty State ──────────────────────────────────────────────────────────────
-
-function EmptyState({ onCreate }: { onCreate: () => void }) {
-  const colors = usePremiumTheme();
-  return (
-    <YStack flex={1} alignItems="center" justifyContent="center" gap="$4" paddingTop="$12" paddingHorizontal="$6">
-      <YStack
-        width={80}
-        height={80}
-        borderRadius={40}
-        backgroundColor="rgba(91,126,107,0.15)"
-        justifyContent="center"
-        alignItems="center"
-      >
-        <BookMarked size={38} color="#5B7E6B" />
-      </YStack>
-      <YStack gap="$2" alignItems="center">
-        <SizableText size="$5" color={colors.text} fontWeight="900" textAlign="center">
-          No study plans yet
-        </SizableText>
-        <SizableText size="$3" color={colors.textMuted} textAlign="center" maxWidth={280} lineHeight={20}>
-          Let AI create a personalized plan based on your profile, or build your own with custom topics.
-        </SizableText>
-      </YStack>
-      <Button
-        backgroundColor="#5B7E6B"
-        color="#FFFFFF"
-        borderRadius="$4"
-        paddingHorizontal="$6"
-        onPress={onCreate}
-        pressStyle={{ opacity: 0.8 }}
-        icon={<Plus size={16} color="#FFFFFF" />}
-      >
-        Create First Plan
-      </Button>
-    </YStack>
-  );
-}
-
-// ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function StudyScreen() {
   const router = useRouter();
@@ -481,96 +358,64 @@ export default function StudyScreen() {
     }
   }, []);
 
-  useFocusEffect(useCallback(() => {
-    loadPlans();
-  }, [loadPlans]));
+  useFocusEffect(useCallback(() => { loadPlans(); }, [loadPlans]));
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
-      {/* Header */}
-      <XStack
-        paddingHorizontal="$5"
-        paddingTop="$3"
-        paddingBottom="$2"
-        justifyContent="space-between"
-        alignItems="center"
-      >
-        <H2 color={colors.text} fontWeight="900" style={{ fontSize: 30 }}>
-          Study Plan
-        </H2>
-        <Button
-          size="$3"
-          backgroundColor="#5B7E6B"
-          color="#FFFFFF"
-          borderRadius="$3"
-          onPress={() => setShowCreate(true)}
-          pressStyle={{ opacity: 0.8 }}
-          icon={<Plus size={14} color="#FFFFFF" />}
-        >
-          New Plan
-        </Button>
-      </XStack>
+    <AppScreen scroll>
+      <PageHeader
+        title="Study Plan"
+        action={
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setShowCreate(true)}
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: colors.primary,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <Plus size={22} color="white" />
+          </TouchableOpacity>
+        }
+      />
 
       {loading ? (
-        <YStack flex={1} justifyContent="center" alignItems="center">
-          <Spinner size="large" color="#5B7E6B" />
+        <YStack flex={1} justifyContent="center" alignItems="center" paddingTop="$10">
+          <Spinner size="large" color={colors.primary} />
         </YStack>
-      ) : (
-        <FlatList
-          data={plans}
-          keyExtractor={item => item.id}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }}
-          ListHeaderComponent={
-            plans.length > 0 ? (
-              <YStack paddingTop="$3" paddingBottom="$1">
-                <SizableText size="$2" color="#9CA3AF" fontWeight="600" letterSpacing={0.5}>
-                  {plans.length} ACTIVE PLAN{plans.length !== 1 ? 'S' : ''}
-                </SizableText>
-              </YStack>
-            ) : null
+      ) : plans.length === 0 ? (
+        <EmptyState
+          icon={<BookMarked size={40} color={colors.primary} />}
+          title="No study plans yet"
+          subtitle="Let AI create a personalized plan based on your profile, or build your own with custom topics."
+          action={
+            <GradientButton onPress={() => setShowCreate(true)} icon={<Plus size={16} color="white" />}>
+              Create First Plan
+            </GradientButton>
           }
-          ListEmptyComponent={
-            <EmptyState onCreate={() => setShowCreate(true)} />
-          }
-          ListFooterComponent={
-            plans.length > 0 ? (
-              <YStack paddingTop="$2" paddingBottom="$4">
-                <Button
-                  backgroundColor="rgba(91,126,107,0.12)"
-                  color="#5B7E6B"
-                  borderColor="rgba(91,126,107,0.25)"
-                  borderWidth={1}
-                  borderRadius="$4"
-                  size="$4"
-                  onPress={() => setShowCreate(true)}
-                  pressStyle={{ opacity: 0.75 }}
-                  icon={<Brain size={16} color="#5B7E6B" />}
-                >
-                  Create AI Study Plan
-                </Button>
-              </YStack>
-            ) : null
-          }
-          renderItem={({ item }) => (
-            <PlanCard
-              plan={item}
-              onPress={() => router.push(`/study-plan-detail?planId=${item.id}` as any)}
-            />
-          )}
         />
+      ) : (
+        <YStack gap="$3">
+          <SizableText size="$2" color={colors.textMuted} fontWeight="700" letterSpacing={0.5}>
+            {plans.length} ACTIVE PLAN{plans.length !== 1 ? 'S' : ''}
+          </SizableText>
+          {plans.map((plan) => (
+            <PlanCard key={plan.id} plan={plan} onPress={() => router.push(`/study-plan-detail?planId=${plan.id}` as any)} />
+          ))}
+          <GradientButton onPress={() => setShowCreate(true)} icon={<Brain size={16} color="white" />}>
+            Create AI Study Plan
+          </GradientButton>
+        </YStack>
       )}
 
-      {/* Create plan sheet */}
-      <CreatePlanSheet
-        open={showCreate}
-        onClose={() => setShowCreate(false)}
-        onCreated={(plan) => {
-          setPlans(prev => [plan, ...prev]);
-          setShowCreate(false);
-          router.push(`/study-plan-detail?planId=${plan.id}` as any);
-        }}
-      />
-    </SafeAreaView>
+      <CreatePlanSheet open={showCreate} onClose={() => setShowCreate(false)} onCreated={(plan) => {
+        setPlans((prev) => [plan, ...prev]);
+        setShowCreate(false);
+        router.push(`/study-plan-detail?planId=${plan.id}` as any);
+      }} />
+    </AppScreen>
   );
 }

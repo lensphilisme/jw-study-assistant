@@ -307,4 +307,56 @@ export function PreviewModal({ open, onClose, title, label, loading, children }:
   );
 }
 
+export function PageHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: React.ReactNode }) {
+  const t = usePremiumTheme();
+  return (
+    <XStack alignItems="center" justifyContent="space-between" paddingVertical="$2">
+      <YStack flex={1} gap="$1">
+        <SizableText fontSize={30} fontWeight="900" color={t.text} letterSpacing={-0.5}>{title}</SizableText>
+        {subtitle && <SizableText size="$3" color={t.textMuted}>{subtitle}</SizableText>}
+      </YStack>
+      {action}
+    </XStack>
+  );
+}
+
+export function StatCard({ value, label, color }: { value: string | number; label: string; color?: string }) {
+  const t = usePremiumTheme();
+  return (
+    <YStack
+      flex={1}
+      backgroundColor={t.surface}
+      borderRadius="$5"
+      padding="$3"
+      borderWidth={1}
+      borderColor={t.border}
+      alignItems="center"
+      gap="$1"
+    >
+      <SizableText fontSize={24} fontWeight="900" color={color || t.text}>{value}</SizableText>
+      <SizableText size="$1" color={t.textMuted} textAlign="center" numberOfLines={2}>{label}</SizableText>
+    </YStack>
+  );
+}
+
+export function FilterChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  const t = usePremiumTheme();
+  return (
+    <YStack
+      backgroundColor={active ? t.primary : t.surface}
+      borderRadius="$10"
+      paddingHorizontal="$3"
+      paddingVertical="$2"
+      borderWidth={1}
+      borderColor={active ? t.primary : t.border}
+      pressStyle={{ opacity: 0.75 }}
+      onPress={onPress}
+    >
+      <SizableText size="$3" color={active ? 'white' : t.textMuted} fontWeight={active ? '700' : '500'}>
+        {label}
+      </SizableText>
+    </YStack>
+  );
+}
+
 export type { PremiumTheme };

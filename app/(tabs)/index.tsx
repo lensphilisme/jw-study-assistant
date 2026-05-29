@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'expo-router';
-import { TouchableOpacity } from 'react-native';
+import { TouchableOpacity, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   YStack,
@@ -29,6 +29,8 @@ import type { Language } from '@/types';
 import { usePremiumTheme } from '@/hooks/usePremiumTheme';
 import { AppScreen, ContentCard, EmptyState, GradientButton, PremiumBadge, PremiumCard, SearchBar, SectionHeader } from '@/components/premium';
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
 interface DailyText {
   date: string;
   scripture: string;
@@ -54,7 +56,6 @@ function formatDate(d: Date, symbol: string): string {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
-    year: 'numeric',
   });
 }
 
@@ -80,37 +81,97 @@ async function fetchDailyText(language: Language): Promise<DailyText | null> {
   };
 }
 
-function QuickAction({
+function QuickActionCard({
   title,
   subtitle,
   icon,
-  colors: gradientColors,
+  gradient,
   onPress,
 }: {
   title: string;
   subtitle: string;
   icon: React.ReactNode;
-  colors: readonly string[];
+  gradient: readonly string[];
   onPress: () => void;
 }) {
-  const theme = usePremiumTheme();
   return (
-    <TouchableOpacity activeOpacity={0.82} onPress={onPress} style={{ flex: 1, minWidth: 144 }}>
-      <YStack borderRadius="$8" overflow="hidden">
-        <LinearGradient colors={gradientColors as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-          <YStack padding="$4" gap="$3" minHeight={136} justifyContent="space-between">
+    <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={{ flex: 1, minWidth: 150 }}>
+      <YStack borderRadius="$7" overflow="hidden">
+        <LinearGradient colors={gradient as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+          <YStack padding="$4" gap="$3" minHeight={130} justifyContent="space-between">
             <XStack justifyContent="space-between" alignItems="center">
-              <YStack width={42} height={42} borderRadius={21} alignItems="center" justifyContent="center" backgroundColor="rgba(255,255,255,0.20)" borderWidth={1} borderColor="rgba(255,255,255,0.25)">
+              <YStack
+                width={44}
+                height={44}
+                borderRadius={22}
+                alignItems="center"
+                justifyContent="center"
+                backgroundColor="rgba(255,255,255,0.2)"
+              >
                 {icon}
               </YStack>
-              <ChevronRight size={18} color="rgba(255,255,255,0.86)" />
+              <ChevronRight size={18} color="rgba(255,255,255,0.8)" />
             </XStack>
             <YStack gap="$1">
-              <SizableText size="$4" color="white" fontWeight="900" lineHeight={21}>{title}</SizableText>
-              <SizableText size="$2" color={theme.mode === 'dark' ? 'rgba(255,255,255,0.78)' : 'rgba(255,255,255,0.86)'} lineHeight={18}>{subtitle}</SizableText>
+              <SizableText size="$4" color="white" fontWeight="900">{title}</SizableText>
+              <SizableText size="$2" color="rgba(255,255,255,0.75)" lineHeight={16}>{subtitle}</SizableText>
             </YStack>
           </YStack>
         </LinearGradient>
+      </YStack>
+    </TouchableOpacity>
+  );
+}
+
+function MeetingCard({
+  title,
+  subtitle,
+  date,
+  icon,
+  color,
+  onPress,
+}: {
+  title: string;
+  subtitle: string;
+  date: string;
+  icon: React.ReactNode;
+  color: string;
+  onPress: () => void;
+}) {
+  const colors = usePremiumTheme();
+  return (
+    <TouchableOpacity activeOpacity={0.8} onPress={onPress}>
+      <YStack
+        backgroundColor={colors.surface}
+        borderRadius="$6"
+        padding="$4"
+        borderWidth={1}
+        borderColor={colors.border}
+        borderLeftWidth={3}
+        borderLeftColor={color}
+      >
+        <XStack alignItems="center" gap="$3">
+          <YStack
+            width={46}
+            height={46}
+            borderRadius={23}
+            backgroundColor={`${color}20`}
+            alignItems="center"
+            justifyContent="center"
+          >
+            {icon}
+          </YStack>
+          <YStack flex={1} gap="$1">
+            <SizableText size="$4" color={colors.text} fontWeight="800">{title}</SizableText>
+            <SizableText size="$2" color={colors.textMuted}>{subtitle}</SizableText>
+          </YStack>
+          <YStack alignItems="flex-end" gap="$1">
+            <YStack backgroundColor={colors.surface2} borderRadius="$2" paddingHorizontal="$2" paddingVertical="$1">
+              <SizableText size="$1" color={colors.textMuted} fontWeight="700">{date}</SizableText>
+            </YStack>
+            <ChevronRight size={16} color={colors.textMuted} />
+          </YStack>
+        </XStack>
       </YStack>
     </TouchableOpacity>
   );
@@ -199,130 +260,130 @@ export default function HomeScreen() {
 
   return (
     <AppScreen scroll>
-      <YStack borderRadius="$10" overflow="hidden">
+      {/* Hero Section */}
+      <YStack borderRadius="$8" overflow="hidden">
         <LinearGradient colors={colors.royalGradient as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-          <YStack padding="$5" gap="$5" minHeight={238}>
+          <YStack padding="$5" gap="$4" minHeight={180}>
             <XStack justifyContent="space-between" alignItems="flex-start">
-              <YStack flex={1} gap="$2">
-                <SizableText size="$2" color="rgba(255,255,255,0.72)" fontWeight="900" letterSpacing={1.3}>
+              <YStack flex={1} gap="$1">
+                <SizableText size="$2" color="rgba(255,255,255,0.65)" fontWeight="800" letterSpacing={1}>
                   {formatDate(new Date(), displaySymbol).toUpperCase()}
                 </SizableText>
-                <SizableText fontSize={34} lineHeight={39} color="white" fontWeight="900">
-                  {greeting}{userName ? `, ${userName}` : ''}
+                <SizableText fontSize={28} lineHeight={34} color="white" fontWeight="900">
+                  {greeting}{userName ? `,` : ''}
                 </SizableText>
-                <SizableText size="$3" color="rgba(255,255,255,0.78)" lineHeight={22} maxWidth={520}>
-                  {translate(displaySymbol, 'home_hero_subtitle')}
-                </SizableText>
+                {userName && (
+                  <SizableText fontSize={28} lineHeight={34} color="white" fontWeight="900">
+                    {userName}
+                  </SizableText>
+                )}
               </YStack>
               <TouchableOpacity onPress={() => router.push('/(tabs)/settings')} activeOpacity={0.75}>
-                <XStack alignItems="center" gap="$2" backgroundColor="rgba(255,255,255,0.16)" borderWidth={1} borderColor="rgba(255,255,255,0.24)" borderRadius="$10" paddingHorizontal="$3" paddingVertical="$2">
+                <XStack
+                  alignItems="center"
+                  gap="$2"
+                  backgroundColor="rgba(255,255,255,0.15)"
+                  borderRadius="$10"
+                  paddingHorizontal="$3"
+                  paddingVertical="$2"
+                >
                   <Globe size={14} color="white" />
-                  <SizableText size="$2" color="white" fontWeight="900">{language.toUpperCase()}</SizableText>
+                  <SizableText size="$2" color="white" fontWeight="800">{language.toUpperCase()}</SizableText>
                 </XStack>
               </TouchableOpacity>
             </XStack>
-            <XStack gap="$3" flexWrap="wrap">
-              <QuickAction
-                title={translate(displaySymbol, 'daily_text')}
-                subtitle={translate(displaySymbol, 'read_full_daily_text')}
-                icon={<BookOpen size={20} color="white" />}
-                colors={colors.sunriseGradient}
-                onPress={goToDailyText}
-              />
-              <QuickAction
-                title={translate(displaySymbol, 'ask_from_sources')}
-                subtitle={translate(displaySymbol, 'search_jw_sources')}
-                icon={<Sparkles size={20} color="white" />}
-                colors={colors.oceanGradient}
-                onPress={() => goToSearch(undefined, true)}
-              />
-            </XStack>
           </YStack>
         </LinearGradient>
       </YStack>
 
-      <YStack borderRadius="$9" overflow="hidden">
-        <LinearGradient colors={colors.mode === 'dark' ? ['rgba(255,255,255,0.12)', 'rgba(139,227,178,0.08)'] : ['rgba(255,255,255,0.98)', 'rgba(255,240,215,0.88)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-          <YStack padding="$5" gap="$4" borderWidth={1} borderColor={colors.borderStrong} borderRadius="$9">
-            <XStack justifyContent="space-between" alignItems="center" gap="$3">
-              <YStack gap="$1" flex={1}>
-                <PremiumBadge>{translate(displaySymbol, 'today')}</PremiumBadge>
-                <SizableText size="$6" color={colors.text} fontWeight="900">{translate(displaySymbol, 'todays_daily_text')}</SizableText>
-              </YStack>
-              <YStack width={52} height={52} borderRadius={26} backgroundColor={colors.glow} alignItems="center" justifyContent="center" borderWidth={1} borderColor={colors.border}>
-                <BookOpen size={23} color={colors.primary} />
-              </YStack>
-            </XStack>
-            {loadingText ? (
-              <XStack gap="$3" alignItems="center" minHeight={96}>
-                <Spinner size="small" color={colors.primary} />
-                <SizableText color={colors.textMuted}>{translate(displaySymbol, 'loading_daily_text')}</SizableText>
-              </XStack>
-            ) : textError ? (
-              <YStack gap="$3">
-                <XStack gap="$2" alignItems="center">
-                  <AlertTriangle size={18} color={colors.warning} />
-                  <SizableText color={colors.warning} fontWeight="900">{translate(displaySymbol, 'could_not_load_daily_text')}</SizableText>
-                </XStack>
-                <GradientButton onPress={() => setRetryCount((c) => c + 1)} icon={<RefreshCw size={15} color="white" />}>{translate(displaySymbol, 'retry')}</GradientButton>
-              </YStack>
-            ) : dailyText ? (
-              <YStack gap="$3">
-                <SizableText size="$7" color={colors.text} fontWeight="900" lineHeight={32}>{dailyText.scripture}</SizableText>
-                <SizableText size="$3" color={colors.textMuted} lineHeight={23} numberOfLines={4}>
-                  {dailyText.comment}
-                </SizableText>
-                <GradientButton onPress={goToDailyText} icon={<ChevronRight size={15} color="white" />}>{translate(displaySymbol, 'read_full_daily_text')}</GradientButton>
-              </YStack>
-            ) : (
-              <EmptyState title={translate(displaySymbol, 'tap_to_load_daily_text')} action={<GradientButton onPress={() => setRetryCount((c) => c + 1)}>{translate(displaySymbol, 'retry')}</GradientButton>} />
-            )}
-          </YStack>
-        </LinearGradient>
-      </YStack>
-
+      {/* Quick Actions */}
       <XStack gap="$3" flexWrap="wrap">
-        <QuickAction
-          title={translate(displaySymbol, 'meetings')}
-          subtitle={translate(displaySymbol, 'this_weeks_meetings')}
-          icon={<Calendar size={20} color="white" />}
-          colors={colors.accentGradient}
-          onPress={() => router.push('/(tabs)/meetings')}
+        <QuickActionCard
+          title={translate(displaySymbol, 'daily_text')}
+          subtitle={translate(displaySymbol, 'read_full_daily_text')}
+          icon={<BookOpen size={22} color="white" />}
+          gradient={colors.sunriseGradient}
+          onPress={goToDailyText}
         />
-        <QuickAction
-          title={translate(displaySymbol, 'field')}
-          subtitle={loadingContacts ? translate(displaySymbol, 'loading_daily_text') : `${contacts.length} ${translate(displaySymbol, 'saved_items').toLowerCase()}`}
-          icon={<Users size={20} color="white" />}
-          colors={colors.sunriseGradient}
-          onPress={() => router.push('/(tabs)/ministry')}
-        />
-        <QuickAction
-          title={translate(displaySymbol, 'library')}
-          subtitle={translate(displaySymbol, 'saved_library')}
-          icon={<Bookmark size={20} color="white" />}
-          colors={colors.oceanGradient}
-          onPress={() => router.push('/(tabs)/saved')}
+        <QuickActionCard
+          title={translate(displaySymbol, 'ask_from_sources')}
+          subtitle={translate(displaySymbol, 'search_jw_sources')}
+          icon={<Sparkles size={22} color="white" />}
+          gradient={colors.oceanGradient}
+          onPress={() => goToSearch(undefined, true)}
         />
       </XStack>
 
+      {/* Daily Text Card */}
       <YStack gap="$3">
-        <SectionHeader title={translate(displaySymbol, 'this_weeks_meetings')} subtitle={`${getMeetingDate(2, displaySymbol)} / ${getMeetingDate(6, displaySymbol)}`} />
-        <ContentCard
+        <SectionHeader title={translate(displaySymbol, 'todays_daily_text')} />
+        <YStack borderRadius="$7" overflow="hidden">
+          <LinearGradient
+            colors={colors.mode === 'dark' ? ['rgba(255,255,255,0.08)', 'rgba(139,227,178,0.06)'] : ['rgba(255,255,255,0.95)', 'rgba(255,240,215,0.8)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <YStack padding="$5" gap="$4" borderWidth={1} borderColor={colors.border} borderRadius="$7">
+              {loadingText ? (
+                <XStack gap="$3" alignItems="center" minHeight={80}>
+                  <Spinner size="small" color={colors.primary} />
+                  <SizableText color={colors.textMuted}>{translate(displaySymbol, 'loading_daily_text')}</SizableText>
+                </XStack>
+              ) : textError ? (
+                <YStack gap="$3">
+                  <XStack gap="$2" alignItems="center">
+                    <AlertTriangle size={18} color={colors.warning} />
+                    <SizableText color={colors.warning} fontWeight="800">{translate(displaySymbol, 'could_not_load_daily_text')}</SizableText>
+                  </XStack>
+                  <GradientButton onPress={() => setRetryCount((c) => c + 1)} icon={<RefreshCw size={15} color="white" />}>
+                    {translate(displaySymbol, 'retry')}
+                  </GradientButton>
+                </YStack>
+              ) : dailyText ? (
+                <YStack gap="$3">
+                  <SizableText size="$6" color={colors.text} fontWeight="900" lineHeight={30}>
+                    {dailyText.scripture}
+                  </SizableText>
+                  <SizableText size="$3" color={colors.textMuted} lineHeight={22} numberOfLines={3}>
+                    {dailyText.comment}
+                  </SizableText>
+                  <GradientButton onPress={goToDailyText} icon={<ChevronRight size={15} color="white" />}>
+                    {translate(displaySymbol, 'read_full_daily_text')}
+                  </GradientButton>
+                </YStack>
+              ) : (
+                <EmptyState
+                  title={translate(displaySymbol, 'tap_to_load_daily_text')}
+                  action={<GradientButton onPress={() => setRetryCount((c) => c + 1)}>{translate(displaySymbol, 'retry')}</GradientButton>}
+                />
+              )}
+            </YStack>
+          </LinearGradient>
+        </YStack>
+      </YStack>
+
+      {/* This Week's Meetings */}
+      <YStack gap="$3">
+        <SectionHeader title={translate(displaySymbol, 'this_weeks_meetings')} />
+        <MeetingCard
           title={translate(displaySymbol, 'midweek_meeting')}
           subtitle={translate(displaySymbol, 'life_ministry')}
-          icon={<BookOpen size={18} color={colors.primary} />}
-          action={<ChevronRight size={18} color={colors.textMuted} />}
+          date={getMeetingDate(2, displaySymbol)}
+          icon={<BookOpen size={22} color={colors.primary} />}
+          color={colors.primary}
           onPress={() => router.push('/(tabs)/meetings')}
         />
-        <ContentCard
+        <MeetingCard
           title={translate(displaySymbol, 'watchtower_study')}
           subtitle={translate(displaySymbol, 'weekend_meeting')}
-          icon={<BookMarked size={18} color={colors.accent} />}
-          action={<ChevronRight size={18} color={colors.textMuted} />}
+          date={getMeetingDate(6, displaySymbol)}
+          icon={<BookMarked size={22} color={colors.accent} />}
+          color={colors.accent}
           onPress={() => router.push('/(tabs)/meetings')}
         />
       </YStack>
 
+      {/* AI Search */}
       <YStack gap="$3">
         <SectionHeader title={translate(displaySymbol, 'quick_ai_ask')} subtitle={translate(displaySymbol, 'ask_ai_sources_hint')} />
         <PremiumCard>
@@ -340,38 +401,66 @@ export default function HomeScreen() {
         </PremiumCard>
       </YStack>
 
+      {/* More Quick Links */}
       <YStack gap="$3">
-        <SectionHeader title={translate(displaySymbol, 'upcoming_return_visits')} />
-        {loadingContacts ? (
-          <PremiumCard><Spinner size="small" color={colors.primary} /></PremiumCard>
-        ) : contacts.length === 0 ? (
-          <EmptyState
-            icon={<Users size={34} color={colors.primary} />}
-            title={translate(displaySymbol, 'no_return_visits')}
-            action={<GradientButton onPress={() => router.push('/(tabs)/ministry')}>{translate(displaySymbol, 'go_to_ministry')}</GradientButton>}
+        <SectionHeader title={translate(displaySymbol, 'quick_access')} />
+        <XStack gap="$3" flexWrap="wrap">
+          <QuickActionCard
+            title={translate(displaySymbol, 'field')}
+            subtitle={`${contacts.length} ${translate(displaySymbol, 'contacts').toLowerCase()}`}
+            icon={<Users size={22} color="white" />}
+            gradient={colors.accentGradient}
+            onPress={() => router.push('/(tabs)/ministry')}
           />
-        ) : (
+          <QuickActionCard
+            title={translate(displaySymbol, 'library')}
+            subtitle={translate(displaySymbol, 'saved_library')}
+            icon={<Bookmark size={22} color="white" />}
+            gradient={['#7B6B9E', '#5B5B8E'] as any}
+            onPress={() => router.push('/(tabs)/saved')}
+          />
+        </XStack>
+      </YStack>
+
+      {/* Return Visits */}
+      {!loadingContacts && contacts.length > 0 && (
+        <YStack gap="$3">
+          <SectionHeader title={translate(displaySymbol, 'upcoming_return_visits')} />
           <PremiumCard padded={false}>
             {contacts.slice(0, 3).map((c, idx) => (
               <YStack key={c.id}>
-                <XStack padding="$4" gap="$3" alignItems="center" onPress={() => router.push('/(tabs)/ministry')} pressStyle={{ opacity: 0.74 }}>
-                  <YStack width={42} height={42} borderRadius={21} backgroundColor={colors.glow} justifyContent="center" alignItems="center" borderWidth={1} borderColor={colors.border}>
-                    <SizableText color={colors.primary} fontWeight="900">{c.name.charAt(0).toUpperCase()}</SizableText>
-                  </YStack>
-                  <YStack flex={1}>
-                    <SizableText color={colors.text} size="$4" fontWeight="900">{c.name}</SizableText>
-                    <SizableText color={colors.textMuted} size="$2" numberOfLines={1}>
-                      {c.nextVisit ? `${translate(displaySymbol, 'next_visit')}: ${c.nextVisit}` : c.address ?? translate(displaySymbol, 'no_date_set')}
-                    </SizableText>
-                  </YStack>
-                  <ChevronRight size={16} color={colors.textMuted} />
-                </XStack>
-                {idx < Math.min(contacts.length, 3) - 1 ? <Separator borderColor={colors.border} /> : null}
+                <TouchableOpacity activeOpacity={0.7} onPress={() => router.push('/(tabs)/ministry')}>
+                  <XStack padding="$4" gap="$3" alignItems="center">
+                    <YStack
+                      width={44}
+                      height={44}
+                      borderRadius={22}
+                      backgroundColor={colors.glow}
+                      justifyContent="center"
+                      alignItems="center"
+                    >
+                      <SizableText color={colors.primary} fontWeight="900" size="$5">
+                        {c.name.charAt(0).toUpperCase()}
+                      </SizableText>
+                    </YStack>
+                    <YStack flex={1}>
+                      <SizableText color={colors.text} size="$4" fontWeight="800">{c.name}</SizableText>
+                      <SizableText color={colors.textMuted} size="$2" numberOfLines={1}>
+                        {c.nextVisit ? `${translate(displaySymbol, 'next_visit')}: ${c.nextVisit}` : c.address ?? translate(displaySymbol, 'no_date_set')}
+                      </SizableText>
+                    </YStack>
+                    <ChevronRight size={16} color={colors.textMuted} />
+                  </XStack>
+                </TouchableOpacity>
+                {idx < Math.min(contacts.length, 3) - 1 && <Separator borderColor={colors.border} />}
               </YStack>
             ))}
           </PremiumCard>
-        )}
-      </YStack>
+        </YStack>
+      )}
+
+      {/* Bottom spacer for tab bar */}
+      <YStack height={20} />
     </AppScreen>
   );
 }
